@@ -44,3 +44,32 @@ main{max-width:1480px;margin:auto}.screen{display:none;animation:fade .2s ease}.
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
 .field textarea{width:100%;min-height:84px;resize:vertical;border:1px solid #303541;background:#0d0f13;color:var(--text);border-radius:10px;padding:11px 12px;line-height:1.5;transition:border-color .18s ease,box-shadow .18s ease,background .18s ease}.field textarea::placeholder{color:#565c68}.field textarea:focus{outline:2px solid var(--accent);outline-offset:2px;border-color:var(--accent);background:#101319}
 
+/* Mobile layout: three-day week and a complete seven-column month */
+@media(max-width:640px){
+  .app-shell{padding-top:max(12px,env(safe-area-inset-top));padding-bottom:104px}
+  .topbar{padding:0 13px;margin-bottom:11px}
+  .brand{gap:9px}.brand-mark{width:32px;height:32px;border-radius:10px;font-size:16px}.brand h1{font-size:24px}
+  .toolbar{min-height:104px;padding:10px 11px;gap:8px;border-radius:15px 15px 0 0}
+  .date-nav{gap:6px}.date-nav .icon-button{width:38px;height:38px;min-width:38px;font-size:20px;border-radius:10px}
+  .period-label{min-width:0;margin-left:3px;gap:6px}.period-label strong{font-size:17px;white-space:nowrap}.period-label span{font-size:10px;white-space:nowrap}
+  .segmented{padding:3px}.segmented button{padding:7px 5px;font-size:11px}
+  .calendar{min-height:calc(100dvh - 176px);scrollbar-width:none;scroll-snap-type:x proximity;scroll-padding-left:44px;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch}
+  .calendar::-webkit-scrollbar{display:none}
+  .week-view{width:max-content;min-width:0;grid-template-columns:44px repeat(7,var(--mobile-day-width,calc((100vw - 44px)/3)))}
+  .time-axis{background:#0e1014}.time-label{right:6px;font-size:9px}
+  .day-column{scroll-snap-align:start}.day-head{gap:3px}.day-head span{font-size:8px}.day-head b{width:28px;height:28px;font-size:12px}
+  .event-card{left:3px;right:3px;padding:5px 4px;border-radius:7px}.event-card b{font-size:9px}.event-card span{font-size:7px}
+  .day-view{grid-template-columns:44px minmax(0,1fr)}.day-lane .day-head{padding-left:12px}.day-lane .day-head b{font-size:13px}.day-lane .event-card{left:8px;width:calc(100% - 16px)}
+  .month-view{width:100%;min-width:0;grid-template-columns:repeat(7,minmax(0,1fr))}
+  .month-weekday{height:30px;font-size:8px}.month-day{min-width:0;min-height:70px;padding:4px 2px}.month-number{width:22px;height:22px;margin:auto;font-size:10px}
+  .month-events{margin-top:4px;flex-direction:row;flex-wrap:wrap;justify-content:center;gap:3px}.month-event{width:7px;height:7px;min-width:7px;padding:0;border:0;border-radius:50%;font-size:0}.month-more{width:100%;padding:0;text-align:center;font-size:7px}
+  .month-event.event-green{background:#b9f6cb}.month-event.event-yellow{background:#ffd393}.month-event.event-red{background:#ff9e9e}.month-event.event-purple{background:#c7bbff}.month-event.event-blue{background:#a9d8ff}.month-event.event-neutral{background:#777d89}
+  .section-heading{margin:5px 0 17px;padding:0 14px}.section-heading h2{font-size:27px}.section-heading p{font-size:11px}.search-wrap{margin:0 14px 13px}.client-grid,.finance-grid{padding:0 14px}
+  .bottom-nav{width:calc(100% - 16px);padding:4px;border-radius:15px}.bottom-nav button{padding:9px 4px;font-size:10px}.nav-icon{font-size:13px;margin-right:4px}
+  .fab{right:13px;bottom:78px;width:48px;height:48px}
+  .modal{max-height:94dvh}.modal form{padding:16px 14px max(17px,env(safe-area-inset-bottom))}.modal-header{margin-bottom:15px}.modal-header h2{font-size:20px}.field{margin-bottom:11px}.field input,.field select{height:42px}
+}
+@media(max-width:380px){
+  .week-view{grid-template-columns:40px repeat(7,var(--mobile-day-width,calc((100vw - 40px)/3)))}.calendar{scroll-padding-left:40px}.period-label span{display:none}.month-day{min-height:64px}.form-grid.three{grid-template-columns:1fr 1fr}.form-grid.three .field:first-child{grid-column:1/-1}
+}
+
