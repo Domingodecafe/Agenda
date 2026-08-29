@@ -221,6 +221,21 @@
     $('#client-options').innerHTML = state.clients.sort((a,b) => a.name.localeCompare(b.name)).map(client => `<option value="${escapeHTML(client.name)}"></option>`).join('');
   }
 
+  function populateTimeOptions() {
+    const times = [];
+    for (let total = 0; total < 24 * 60; total += 15) times.push(`${pad(Math.floor(total / 60))}:${pad(total % 60)}`);
+    times.push('23:59');
+    const options = times.map(time => `<option value="${time}">${time}</option>`).join('');
+    $('#appointment-start').innerHTML = options;
+    $('#appointment-end').innerHTML = options;
+  }
+
+  function setTimeValue(selector, value) {
+    const select = $(selector);
+    if (value && !Array.from(select.options).some(option => option.value === value)) select.add(new Option(value, value));
+    select.value = value;
+  }
+
   function oneHourAfter(start) {
     if (!start) return '';
     const total = Math.min(timeMinutes(start) + 60, (24 * 60) - 1);
@@ -229,7 +244,7 @@
 
   function updateEndFromStart() {
     const calculatedEnd = oneHourAfter($('#appointment-start').value);
-    if (calculatedEnd) $('#appointment-end').value = calculatedEnd;
+    if (calculatedEnd) setTimeValue('#appointment-end', calculatedEnd);
   }
 
   function setSelectedColor(scope, color = 'green') {
@@ -246,8 +261,8 @@
     $('#appointment-id').value = '';
     $('#appointment-kind').value = 'appointment';
     $('#appointment-date').value = date;
-    $('#appointment-start').value = start;
-    $('#appointment-end').value = oneHourAfter(start);
+    setTimeValue('#appointment-start', start);
+    setTimeValue('#appointment-end', oneHourAfter(start));
     $('#appointment-value').value = '0';
     setSelectedColor('appointment', 'green');
     $('#appointment-title').textContent = 'Novo atendimento';
@@ -286,8 +301,8 @@
     $('#appointment-type').value = item.type || 'Consulta';
     $('#appointment-modality').value = item.modality || 'Presencial';
     $('#appointment-date').value = item.date;
-    $('#appointment-start').value = item.start;
-    $('#appointment-end').value = item.end;
+    setTimeValue('#appointment-start', item.start);
+    setTimeValue('#appointment-end', item.end);
     $('#appointment-value').value = item.value || 0;
     setSelectedColor('appointment', item.color || eventColor(item));
     $('#appointment-status').value = item.status || 'Agendado';
@@ -519,6 +534,7 @@
   async function init() {
     await loadState();
     anchorDate.setHours(0,0,0,0);
+    populateTimeOptions();
     bindEvents();
     setView(state.settings.view || 'week');
     setTab('agenda');
