@@ -43,6 +43,7 @@ main{max-width:1480px;margin:auto}.screen{display:none;animation:fade .2s ease}.
 @media(max-width:640px){.toolbar{min-height:124px;padding:14px 16px;gap:12px}.date-nav .icon-button{width:43px;height:43px}.period-label{margin-left:7px}.period-label strong{font-size:19px}.segmented button{min-width:0;padding:9px 8px}.brand h1{font-size:28px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
 .field textarea{width:100%;min-height:84px;resize:vertical;border:1px solid #303541;background:#0d0f13;color:var(--text);border-radius:10px;padding:11px 12px;line-height:1.5;transition:border-color .18s ease,box-shadow .18s ease,background .18s ease}.field textarea::placeholder{color:#565c68}.field textarea:focus{outline:2px solid var(--accent);outline-offset:2px;border-color:var(--accent);background:#101319}
+.time-select{font-variant-numeric:tabular-nums;font-weight:700;letter-spacing:.02em}
 
 /* Mobile layout: three-day week and a complete seven-column month */
 @media(max-width:640px){
@@ -69,6 +70,7 @@ main{max-width:1480px;margin:auto}.screen{display:none;animation:fade .2s ease}.
   .bottom-nav{width:calc(100% - 16px);padding:4px;border-radius:15px}.bottom-nav button{padding:9px 4px;font-size:10px}.nav-icon{font-size:13px;margin-right:4px}
   .fab{right:13px;bottom:78px;width:48px;height:48px}
   .modal{max-height:94dvh}.modal form{padding:16px 14px max(17px,env(safe-area-inset-bottom))}.modal-header{margin-bottom:15px}.modal-header h2{font-size:20px}.field{margin-bottom:11px}.field input,.field select{height:42px}
+  .form-grid.three{column-gap:10px}.time-field{gap:8px;margin-bottom:13px}.time-field>span{font-size:11px}.time-field .time-select{height:48px;padding:0 38px 0 13px;font-size:16px;background-color:#0b0e13;border-color:#3a404c;border-radius:12px}
 }
 @media(max-width:380px){
   .week-view{grid-template-columns:40px repeat(7,var(--mobile-day-width,calc((100vw - 40px)/3)))}.calendar{scroll-padding-left:40px}.period-label span{display:none}.month-day{min-height:64px}.form-grid.three{grid-template-columns:1fr 1fr}.form-grid.three .field:first-child{grid-column:1/-1}
