@@ -549,6 +549,7 @@
     $('#prev-date').addEventListener('click', () => navigateDate(-1));
     $('#next-date').addEventListener('click', () => navigateDate(1));
     $('#today-header').addEventListener('click', () => { anchorDate = new Date(); renderCalendar(); });
+    $('#today-toolbar').addEventListener('click', () => { anchorDate = new Date(); renderCalendar(); });
     $('#fab').addEventListener('click', () => openNewAppointment(isoDate(anchorDate), '09:00'));
     $('#calendar').addEventListener('click', event => {
       if (Date.now() < suppressCalendarClickUntil) { event.preventDefault(); return; }
