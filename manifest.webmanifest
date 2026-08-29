@@ -1,0 +1,13 @@
+{
+  "name": "Agenda",
+  "short_name": "Agenda",
+  "description": "Agenda de atendimentos privada e offline.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#090a0d",
+  "theme_color": "#090a0d",
+  "lang": "pt-BR",
+  "icons": [{"src":"icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]
+}
+
