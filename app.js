@@ -149,6 +149,20 @@
         <div class="day-hit-area" data-date="${isoDate(date)}"></div>${relevantEvents(date).map(eventCard).join('')}</div>`;
     }
     $('#calendar').innerHTML = `${html}</div>`;
+    positionMobileWeek();
+  }
+
+  function positionMobileWeek() {
+    if (!window.matchMedia('(max-width: 640px)').matches) return;
+    requestAnimationFrame(() => {
+      const calendar = $('#calendar');
+      const target = calendar.querySelector(`.day-column[data-date="${isoDate(anchorDate)}"]`);
+      if (!target) return;
+      const axisWidth = window.matchMedia('(max-width: 380px)').matches ? 40 : 44;
+      calendar.style.setProperty('--mobile-day-width', `${(calendar.clientWidth - axisWidth) / 3}px`);
+      const usableWidth = calendar.clientWidth - axisWidth;
+      calendar.scrollLeft = Math.max(0, target.offsetLeft - axisWidth - (usableWidth - target.offsetWidth) / 2);
+    });
   }
 
   function renderDay() {
@@ -495,6 +509,7 @@
     $('#client-search').addEventListener('input', renderClients);
     $('#delete-client').addEventListener('click', deleteClient);
     $('#summary-month').addEventListener('change', renderSummary);
+    window.addEventListener('resize', () => { if (state.settings.view === 'week') positionMobileWeek(); });
     $$('[data-close]').forEach(button => button.addEventListener('click', () => document.getElementById(button.dataset.close).close()));
     window.addEventListener('beforeinstallprompt', event => { event.preventDefault(); deferredInstall = event; $('#install-button').classList.remove('hidden'); });
     $('#install-button').addEventListener('click', async () => { if (!deferredInstall) return; deferredInstall.prompt(); await deferredInstall.userChoice; deferredInstall = null; $('#install-button').classList.add('hidden'); });
