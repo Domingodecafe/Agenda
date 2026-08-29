@@ -48,18 +48,19 @@ main{max-width:1480px;margin:auto}.screen{display:none;animation:fade .2s ease}.
 @media(max-width:640px){
   .app-shell{padding-top:max(12px,env(safe-area-inset-top));padding-bottom:104px}
   .topbar{padding:0 13px;margin-bottom:11px}
+  #agenda-screen{padding:0 8px}
   .brand{gap:9px}.brand-mark{width:32px;height:32px;border-radius:10px;font-size:16px}.brand h1{font-size:24px}
   .toolbar{min-height:104px;padding:10px 11px;gap:8px;border-radius:15px 15px 0 0}
   .date-nav{gap:6px}.date-nav .icon-button{width:38px;height:38px;min-width:38px;font-size:20px;border-radius:10px}
   .period-label{min-width:0;margin-left:3px;gap:6px}.period-label strong{font-size:17px;white-space:nowrap}.period-label span{font-size:10px;white-space:nowrap}
   .segmented{padding:3px}.segmented button{padding:7px 5px;font-size:11px}
-  .calendar{min-height:calc(100dvh - 176px);scrollbar-width:none;scroll-snap-type:x proximity;scroll-padding-left:44px;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch}
+  .calendar{width:100%;min-height:calc(100dvh - 176px);border-left:1px solid var(--line);border-right:1px solid var(--line);border-radius:0 0 16px 16px;scrollbar-width:none;scroll-snap-type:x proximity;scroll-padding-left:44px;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch}
   .calendar::-webkit-scrollbar{display:none}
   .week-view{width:max-content;min-width:0;grid-template-columns:44px repeat(7,var(--mobile-day-width,calc((100vw - 44px)/3)))}
   .time-axis{background:#0e1014}.time-label{right:6px;font-size:9px}
   .day-column{scroll-snap-align:start}.day-head{gap:3px}.day-head span{font-size:8px}.day-head b{width:28px;height:28px;font-size:12px}
   .event-card{left:3px;right:3px;padding:5px 4px;border-radius:7px}.event-card b{font-size:9px}.event-card span{font-size:7px}
-  .day-view{grid-template-columns:44px minmax(0,1fr)}.day-lane .day-head{padding-left:12px}.day-lane .day-head b{font-size:13px}.day-lane .event-card{left:8px;width:calc(100% - 16px)}
+  .day-view{width:100%;max-width:100%;grid-template-columns:44px minmax(0,1fr);overflow:hidden}.day-view .time-axis{border-radius:0 0 0 15px}.day-lane{min-width:0;overflow:hidden;border-radius:0 0 15px 0}.day-lane .day-head{padding-left:12px}.day-lane .day-head b{font-size:13px}.day-lane .event-card{left:8px;width:calc(100% - 16px)}
   .month-view{width:100%;min-width:0;grid-template-columns:repeat(7,minmax(0,1fr))}
   .month-weekday{height:30px;font-size:8px}.month-day{min-width:0;min-height:70px;padding:4px 2px}.month-number{width:22px;height:22px;margin:auto;font-size:10px}
   .month-events{margin-top:4px;flex-direction:row;flex-wrap:wrap;justify-content:center;gap:3px}.month-event{width:7px;height:7px;min-width:7px;padding:0;border:0;border-radius:50%;font-size:0}.month-more{width:100%;padding:0;text-align:center;font-size:7px}
