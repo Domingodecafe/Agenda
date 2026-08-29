@@ -337,6 +337,7 @@
     $('#appointment-extra').classList.toggle('hidden', kind === 'block');
     $('#block-label-wrap').classList.toggle('hidden', kind !== 'block');
     $('#appointment-client').required = kind === 'appointment';
+    $('#appointment-recurrence').disabled = kind !== 'appointment';
     $('#appointment-title').textContent = $('#appointment-id').value ? (kind === 'block' ? 'Editar bloqueio' : 'Editar atendimento') : (kind === 'block' ? 'Novo bloqueio' : 'Novo atendimento');
   }
 
@@ -367,8 +368,8 @@
     $('#edit-status-fields').classList.toggle('hidden', item.kind === 'block');
     $('#delete-appointment').classList.remove('hidden');
     $('#reschedule-appointment').classList.toggle('hidden', item.kind === 'block' || item.status === 'Remarcado');
-    $('#appointment-recurrence').value = 'none';
-    $('#appointment-recurrence').disabled = true;
+    $('#appointment-recurrence').value = item.kind === 'appointment' ? item.recurrence || 'none' : 'none';
+    $('#appointment-recurrence').disabled = item.kind !== 'appointment';
     setAppointmentKind(item.kind);
     $('#appointment-dialog').showModal();
   }
@@ -405,16 +406,31 @@
         state.clients.push(client);
       }
     }
+    let recurrenceChanged = false;
     if (id) {
       const item = state.appointments.find(entry => entry.id === id);
+      const previousFrequency = item.recurrence || 'none';
+      const frequency = kind === 'appointment' ? $('#appointment-recurrence').value : 'none';
+      const originalDate = item.date;
+      const seriesId = item.seriesId || uid();
+      recurrenceChanged = previousFrequency !== frequency;
+      if (recurrenceChanged && item.seriesId) {
+        state.appointments = state.appointments.filter(entry => entry.id === id || entry.seriesId !== item.seriesId || entry.date < originalDate);
+      }
       Object.assign(item, {
         kind, date, start, end,
         label: $('#block-label').value.trim(),
         clientId: client?.id || null, clientName: client?.name || '',
         type: $('#appointment-type').value, modality: $('#appointment-modality').value,
         value: Number($('#appointment-value').value || 0), color: $('#appointment-color').value, status: $('#appointment-status').value,
-        financialStatus: $('#financial-status').value
+        financialStatus: $('#financial-status').value, recurrence: frequency,
+        seriesId: frequency === 'none' ? null : seriesId
       });
+      if (recurrenceChanged && frequency !== 'none') {
+        recurrenceDates(date, frequency).slice(1).forEach(occurrence => state.appointments.push({
+          ...item, id: uid(), date: isoDate(occurrence), status: 'Agendado', financialStatus: 'A receber', createdAt: new Date().toISOString()
+        }));
+      }
     } else {
       const seriesId = uid();
       const frequency = kind === 'appointment' ? $('#appointment-recurrence').value : 'none';
@@ -429,7 +445,7 @@
     await saveState();
     $('#appointment-dialog').close();
     renderCalendar();
-    showToast(id ? 'Atendimento atualizado.' : 'Atendimento salvo no dispositivo.');
+    showToast(recurrenceChanged ? 'Recorrência atualizada e próximas sessões criadas.' : id ? 'Atendimento atualizado.' : 'Atendimento salvo no dispositivo.');
   }
 
   function initials(name) { return name.split(/\s+/).slice(0,2).map(part => part[0]).join('').toUpperCase(); }
