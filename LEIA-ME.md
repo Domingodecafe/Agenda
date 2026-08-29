@@ -11,6 +11,8 @@ PWA responsiva para organizar atendimentos. Os dados são salvos somente no nave
 ## Recursos incluídos
 
 - Agenda em Dia, Semana e Mês.
+- Semana otimizada para celular, mostrando três dias por vez e abrindo na data selecionada.
+- Mês compacto com os sete dias visíveis sem rolagem horizontal.
 - Atendimentos, bloqueios, edição, exclusão e remarcação.
 - Duração padrão de uma hora, com horário final automático e edição manual.
 - Recorrência semanal, quinzenal e mensal por 12 meses.
