@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#090a0d">
+  <meta name="description" content="Agenda de atendimentos privada, offline e salva no seu dispositivo.">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css?v=7">
+  <title>Agenda</title>
+</head>
+<body>
+  <div id="app" class="app-shell">
+    <header class="topbar">
+      <div class="brand"><span class="brand-mark">A</span><h1>Agenda</h1></div>
+      <div class="header-actions">
+        <button id="install-button" class="icon-button install-button hidden" type="button" title="Instalar aplicativo" aria-label="Instalar aplicativo">⇩</button>
+        <button id="today-header" class="text-button" type="button">Hoje</button>
+        <span class="local-badge"><i></i> Salvo neste dispositivo</span>
+      </div>
+    </header>
+
+    <main>
+      <section id="agenda-screen" class="screen active" aria-label="Agenda">
+        <div class="toolbar surface">
+          <div class="date-nav">
+            <button id="prev-date" class="icon-button" type="button" aria-label="Período anterior">‹</button>
+            <button id="next-date" class="icon-button" type="button" aria-label="Próximo período">›</button>
+            <div class="period-label"><strong id="period-primary"></strong><span id="period-secondary"></span></div>
+          </div>
+          <div class="segmented" role="group" aria-label="Visualização da agenda">
+            <button data-view="day" type="button">Dia</button>
+            <button data-view="week" type="button" class="active">Semana</button>
+            <button data-view="month" type="button">Mês</button>
+          </div>
+        </div>
+        <div id="calendar" class="calendar surface" aria-live="polite"></div>
+      </section>
+
+      <section id="clients-screen" class="screen" aria-label="Clientes">
+        <div class="section-heading"><div><span class="eyebrow">CADASTROS</span><h2>Clientes</h2><p>Informações essenciais para agendar mais rápido.</p></div><button id="new-client" class="primary-button" type="button">＋ Novo cliente</button></div>
+        <div class="search-wrap"><span>⌕</span><input id="client-search" type="search" placeholder="Buscar por nome ou telefone" aria-label="Buscar clientes"></div>
+        <div id="client-list" class="client-grid"></div>
+      </section>
+
+      <section id="summary-screen" class="screen" aria-label="Resumo financeiro">
+        <div class="section-heading"><div><span class="eyebrow">FINANCEIRO</span><h2>Resumo mensal</h2><p>Uma visão simples do que entrou e do que ainda está pendente.</p></div><label class="month-picker"><span>Mês</span><input id="summary-month" type="month"></label></div>
+        <div id="finance-cards" class="finance-grid"></div>
+        <div class="surface summary-panel"><div class="panel-heading"><div><span class="eyebrow">MOVIMENTOS</span><h3 id="summary-list-title">Atendimentos do mês</h3></div></div><div id="summary-list" class="summary-list"></div></div>
+      </section>
+    </main>
+
+    <button id="fab" class="fab" type="button"><span>＋</span><b>Novo atendimento</b></button>
+    <nav class="bottom-nav" aria-label="Navegação principal">
+      <button data-tab="agenda" class="active" type="button"><span class="nav-icon">▦</span><span>Agenda</span></button>
+      <button data-tab="clients" type="button"><span class="nav-icon">♙</span><span>Clientes</span></button>
+      <button data-tab="summary" type="button"><span class="nav-icon">◔</span><span>Resumo</span></button>
+    </nav>
+  </div>
+
+  <dialog id="appointment-dialog" class="modal">
+    <form id="appointment-form" method="dialog">
+      <div class="modal-header"><div><span id="appointment-kicker" class="eyebrow">NOVO</span><h2 id="appointment-title">Novo atendimento</h2></div><button class="close-button" value="cancel" type="button" data-close="appointment-dialog" aria-label="Fechar">×</button></div>
+      <input id="appointment-id" type="hidden">
+      <div class="type-toggle"><button data-kind="appointment" type="button" class="active">Atendimento</button><button data-kind="block" type="button">Bloqueio de horário</button></div>
+      <input id="appointment-kind" type="hidden" value="appointment">
+      <div id="appointment-fields">
+        <label class="field full"><span>Cliente</span><input id="appointment-client" list="client-options" autocomplete="off" placeholder="Nome do cliente" required><datalist id="client-options"></datalist></label>
+        <div class="form-grid">
+          <label class="field"><span>Tipo de atendimento</span><select id="appointment-type"><option>Consulta</option><option>Sessão</option><option>Avaliação</option><option>Retorno</option><option>Outro</option></select></label>
+          <label class="field"><span>Modalidade</span><select id="appointment-modality"><option>Presencial</option><option>Online</option></select></label>
+        </div>
+      </div>
+      <label id="block-label-wrap" class="field full hidden"><span>Motivo do bloqueio</span><input id="block-label" placeholder="Ex.: Almoço, compromisso pessoal"></label>
+      <div class="form-grid three">
+        <label class="field"><span>Data</span><input id="appointment-date" type="date" required></label>
+        <label class="field"><span>Início</span><input id="appointment-start" type="time" step="900" required></label>
+        <label class="field"><span>Fim <small>1h padrão</small></span><input id="appointment-end" type="time" step="900" required></label>
+      </div>
+      <div id="appointment-extra">
+        <div class="form-grid">
+          <label class="field money-field"><span>Valor</span><div><span>R$</span><input id="appointment-value" type="number" min="0" step="0.01" value="0"></div></label>
+          <label class="field"><span>Recorrência</span><select id="appointment-recurrence"><option value="none">Única</option><option value="weekly">Semanal</option><option value="biweekly">Quinzenal</option><option value="monthly">Mensal</option></select></label>
+        </div>
+        <div class="field full color-field"><span>Cor na agenda</span><input id="appointment-color" type="hidden" value="green"><div class="color-picker" data-color-picker="appointment" role="group" aria-label="Cor do atendimento">
+          <button class="active" data-color="green" type="button" aria-label="Verde" aria-pressed="true"><i></i><b>Verde</b></button>
+          <button data-color="yellow" type="button" aria-label="Amarelo" aria-pressed="false"><i></i><b>Amarelo</b></button>
+          <button data-color="red" type="button" aria-label="Vermelho" aria-pressed="false"><i></i><b>Vermelho</b></button>
+          <button data-color="purple" type="button" aria-label="Roxo" aria-pressed="false"><i></i><b>Roxo</b></button>
+          <button data-color="blue" type="button" aria-label="Azul" aria-pressed="false"><i></i><b>Azul</b></button>
+        </div>
+        <div id="edit-status-fields" class="form-grid hidden">
+          <label class="field"><span>Status do atendimento</span><select id="appointment-status"><option>Agendado</option><option>Realizado</option><option>Remarcado</option><option>Cancelado</option><option>Faltou</option></select></label>
+          <label class="field"><span>Status financeiro</span><select id="financial-status"><option>A receber</option><option>Pago</option><option>Não pago</option></select></label>
+        </div>
+      </div>
+      <p id="form-error" class="form-error" role="alert"></p>
+      <div class="modal-actions"><div><button id="delete-appointment" class="danger-button hidden" type="button">Excluir</button><button id="reschedule-appointment" class="secondary-button hidden" type="button">Remarcar</button></div><div><button class="secondary-button" type="button" data-close="appointment-dialog">Cancelar</button><button class="primary-button" type="submit">Salvar</button></div></div>
+    </form>
+  </dialog>
+
+  <dialog id="client-dialog" class="modal small-modal">
+    <form id="client-form" method="dialog">
+      <div class="modal-header"><div><span class="eyebrow">CLIENTE</span><h2 id="client-dialog-title">Novo cliente</h2></div><button class="close-button" type="button" data-close="client-dialog" aria-label="Fechar">×</button></div>
+      <input id="client-id" type="hidden">
+      <label class="field full"><span>Nome</span><input id="client-name" required autocomplete="name"></label>
+      <label class="field full"><span>Telefone <small>opcional</small></span><input id="client-phone" type="tel" autocomplete="tel" placeholder="(00) 00000-0000"></label>
+      <label class="field money-field full"><span>Valor padrão da sessão</span><div><span>R$</span><input id="client-value" type="number" min="0" step="0.01" value="0"></div></label>
+      <label class="field full"><span>Observações <small>opcional</small></span><textarea id="client-notes" rows="3" maxlength="500" placeholder="Preferências, lembretes ou informações importantes"></textarea></label>
+      <div class="field full color-field"><span>Cor padrão na agenda</span><input id="client-color" type="hidden" value="green"><div class="color-picker" data-color-picker="client" role="group" aria-label="Cor do cliente">
+        <button class="active" data-color="green" type="button" aria-label="Verde" aria-pressed="true"><i></i><b>Verde</b></button>
+        <button data-color="yellow" type="button" aria-label="Amarelo" aria-pressed="false"><i></i><b>Amarelo</b></button>
+        <button data-color="red" type="button" aria-label="Vermelho" aria-pressed="false"><i></i><b>Vermelho</b></button>
+        <button data-color="purple" type="button" aria-label="Roxo" aria-pressed="false"><i></i><b>Roxo</b></button>
+        <button data-color="blue" type="button" aria-label="Azul" aria-pressed="false"><i></i><b>Azul</b></button>
+      </div>
+      <div class="modal-actions"><button id="delete-client" class="danger-button hidden" type="button">Excluir</button><div><button class="secondary-button" type="button" data-close="client-dialog">Cancelar</button><button class="primary-button" type="submit">Salvar</button></div></div>
+    </form>
+  </dialog>
+
+  <dialog id="confirm-dialog" class="modal confirm-modal"><form method="dialog"><div class="confirm-symbol">!</div><h2 id="confirm-title">Confirmar ação</h2><p id="confirm-text"></p><div class="modal-actions centered"><button class="secondary-button" value="cancel">Cancelar</button><button id="confirm-action" class="danger-button" value="confirm">Confirmar</button></div></form></dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="app.js?v=7" defer></script>
+</body>
+</html>
+
