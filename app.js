@@ -17,6 +17,7 @@
   let deferredInstall = null;
   let storageMode = 'indexedDB';
   let toastTimer;
+  let suppressCalendarClickUntil = 0;
 
   const uid = () => crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
   const pad = value => String(value).padStart(2, '0');
@@ -156,12 +157,8 @@
     if (!window.matchMedia('(max-width: 640px)').matches) return;
     requestAnimationFrame(() => {
       const calendar = $('#calendar');
-      const target = calendar.querySelector(`.day-column[data-date="${isoDate(anchorDate)}"]`);
-      if (!target) return;
-      const axisWidth = window.matchMedia('(max-width: 380px)').matches ? 40 : 44;
-      calendar.style.setProperty('--mobile-day-width', `${(calendar.clientWidth - axisWidth) / 3}px`);
-      const usableWidth = calendar.clientWidth - axisWidth;
-      calendar.scrollLeft = Math.max(0, target.offsetLeft - axisWidth - (usableWidth - target.offsetWidth) / 2);
+      calendar.style.removeProperty('--mobile-day-width');
+      calendar.scrollLeft = 0;
     });
   }
 
@@ -215,6 +212,63 @@
     else if (state.settings.view === 'week') anchorDate = addDays(anchorDate, direction * 7);
     else anchorDate = addMonths(anchorDate, direction);
     renderCalendar();
+  }
+
+  function bindCalendarSwipe() {
+    const calendar = $('#calendar');
+    let startX = 0;
+    let startY = 0;
+    let deltaX = 0;
+    let horizontalGesture = false;
+    let movingView = null;
+
+    const resetMovingView = () => {
+      if (!movingView) return;
+      movingView.style.transition = 'transform .2s var(--ease-out), opacity .2s ease';
+      movingView.style.transform = '';
+      movingView.style.opacity = '';
+      movingView = null;
+    };
+
+    calendar.addEventListener('touchstart', event => {
+      if (event.touches.length !== 1) return;
+      startX = event.touches[0].clientX;
+      startY = event.touches[0].clientY;
+      deltaX = 0;
+      horizontalGesture = false;
+      movingView = calendar.firstElementChild;
+    }, { passive: true });
+
+    calendar.addEventListener('touchmove', event => {
+      if (event.touches.length !== 1 || !movingView) return;
+      deltaX = event.touches[0].clientX - startX;
+      const deltaY = event.touches[0].clientY - startY;
+      if (!horizontalGesture && Math.abs(deltaX) < Math.abs(deltaY) + 8) return;
+      horizontalGesture = true;
+      event.preventDefault();
+      movingView.style.transition = 'none';
+      movingView.style.transform = `translateX(${deltaX * .72}px)`;
+      movingView.style.opacity = String(Math.max(.72, 1 - Math.abs(deltaX) / 600));
+    }, { passive: false });
+
+    const finishSwipe = () => {
+      if (!movingView) return;
+      if (horizontalGesture && Math.abs(deltaX) >= 48) {
+        const direction = deltaX < 0 ? 1 : -1;
+        const departingView = movingView;
+        suppressCalendarClickUntil = Date.now() + 500;
+        departingView.style.transition = 'transform .16s ease, opacity .16s ease';
+        departingView.style.transform = `translateX(${direction > 0 ? '-24%' : '24%'})`;
+        departingView.style.opacity = '.2';
+        movingView = null;
+        setTimeout(() => navigateDate(direction), 140);
+      } else resetMovingView();
+      horizontalGesture = false;
+      deltaX = 0;
+    };
+
+    calendar.addEventListener('touchend', finishSwipe, { passive: true });
+    calendar.addEventListener('touchcancel', resetMovingView, { passive: true });
   }
 
   function populateClientOptions() {
@@ -497,6 +551,7 @@
     $('#today-header').addEventListener('click', () => { anchorDate = new Date(); renderCalendar(); });
     $('#fab').addEventListener('click', () => openNewAppointment(isoDate(anchorDate), '09:00'));
     $('#calendar').addEventListener('click', event => {
+      if (Date.now() < suppressCalendarClickUntil) { event.preventDefault(); return; }
       const eventButton = event.target.closest('[data-event-id]');
       if (eventButton) { event.stopPropagation(); openEditAppointment(eventButton.dataset.eventId); return; }
       const monthDay = event.target.closest('.month-day[data-date]');
@@ -536,6 +591,7 @@
     anchorDate.setHours(0,0,0,0);
     populateTimeOptions();
     bindEvents();
+    bindCalendarSwipe();
     setView(state.settings.view || 'week');
     setTab('agenda');
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
