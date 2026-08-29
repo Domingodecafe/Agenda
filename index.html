@@ -7,7 +7,7 @@
   <meta name="description" content="Agenda de atendimentos privada, offline e salva no seu dispositivo.">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=9">
+  <link rel="stylesheet" href="styles.css?v=10">
   <title>Agenda</title>
 </head>
 <body>
@@ -75,8 +75,8 @@
       <label id="block-label-wrap" class="field full hidden"><span>Motivo do bloqueio</span><input id="block-label" placeholder="Ex.: Almoço, compromisso pessoal"></label>
       <div class="form-grid three">
         <label class="field"><span>Data</span><input id="appointment-date" type="date" required></label>
-        <label class="field"><span>Início</span><input id="appointment-start" type="time" step="900" required></label>
-        <label class="field"><span>Fim <small>1h padrão</small></span><input id="appointment-end" type="time" step="900" required></label>
+        <label class="field time-field"><span>Início</span><select id="appointment-start" class="time-select" required aria-label="Horário de início"></select></label>
+        <label class="field time-field"><span>Fim <small>1h padrão</small></span><select id="appointment-end" class="time-select" required aria-label="Horário de fim"></select></label>
       </div>
       <div id="appointment-extra">
         <div class="form-grid">
@@ -121,7 +121,7 @@
 
   <dialog id="confirm-dialog" class="modal confirm-modal"><form method="dialog"><div class="confirm-symbol">!</div><h2 id="confirm-title">Confirmar ação</h2><p id="confirm-text"></p><div class="modal-actions centered"><button class="secondary-button" value="cancel">Cancelar</button><button id="confirm-action" class="danger-button" value="confirm">Confirmar</button></div></form></dialog>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script src="app.js?v=8" defer></script>
+  <script src="app.js?v=10" defer></script>
 </body>
 </html>
 
