@@ -15,6 +15,7 @@ PWA responsiva para organizar atendimentos. Os dados são salvos somente no nave
 - Mês compacto com os sete dias visíveis sem rolagem horizontal.
 - Atendimentos, bloqueios, edição, exclusão e remarcação.
 - Duração padrão de uma hora, com horário final automático e edição manual.
+- Seletores de horário próprios e legíveis no celular, em intervalos de 15 minutos.
 - Recorrência semanal, quinzenal e mensal por 12 meses.
 - Cadastro simples de clientes e valor padrão.
 - Campo de observações no cadastro de clientes.
