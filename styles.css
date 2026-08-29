@@ -45,7 +45,7 @@ main{max-width:1480px;margin:auto}.screen{display:none;animation:fade .2s ease}.
 .field textarea{width:100%;min-height:84px;resize:vertical;border:1px solid #303541;background:#0d0f13;color:var(--text);border-radius:10px;padding:11px 12px;line-height:1.5;transition:border-color .18s ease,box-shadow .18s ease,background .18s ease}.field textarea::placeholder{color:#565c68}.field textarea:focus{outline:2px solid var(--accent);outline-offset:2px;border-color:var(--accent);background:#101319}
 .time-select{font-variant-numeric:tabular-nums;font-weight:700;letter-spacing:.02em}
 
-/* Mobile layout: three-day week and a complete seven-column month */
+/* Mobile layout: complete week, complete month and gesture navigation */
 @media(max-width:640px){
   .app-shell{padding-top:max(12px,env(safe-area-inset-top));padding-bottom:104px}
   .topbar{padding:0 13px;margin-bottom:11px}
@@ -55,12 +55,12 @@ main{max-width:1480px;margin:auto}.screen{display:none;animation:fade .2s ease}.
   .date-nav{gap:6px}.date-nav .icon-button{width:38px;height:38px;min-width:38px;font-size:20px;border-radius:10px}
   .period-label{min-width:0;margin-left:3px;gap:6px}.period-label strong{font-size:17px;white-space:nowrap}.period-label span{font-size:10px;white-space:nowrap}
   .segmented{padding:3px}.segmented button{padding:7px 5px;font-size:11px}
-  .calendar{width:100%;min-height:calc(100dvh - 176px);border-left:1px solid var(--line);border-right:1px solid var(--line);border-radius:0 0 16px 16px;scrollbar-width:none;scroll-snap-type:x proximity;scroll-padding-left:44px;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch}
+  .calendar{width:100%;min-height:calc(100dvh - 176px);border-left:1px solid var(--line);border-right:1px solid var(--line);border-radius:0 0 16px 16px;overflow-x:hidden;overflow-y:auto;scrollbar-width:none;overscroll-behavior-x:none;touch-action:pan-y;-webkit-overflow-scrolling:touch}
   .calendar::-webkit-scrollbar{display:none}
-  .week-view{width:max-content;min-width:0;grid-template-columns:44px repeat(7,var(--mobile-day-width,calc((100vw - 44px)/3)))}
-  .time-axis{background:#0e1014}.time-label{right:6px;font-size:9px}
-  .day-column{scroll-snap-align:start}.day-head{gap:3px}.day-head span{font-size:8px}.day-head b{width:28px;height:28px;font-size:12px}
-  .event-card{left:3px;right:3px;padding:5px 4px;border-radius:7px}.event-card b{font-size:9px}.event-card span{font-size:7px}
+  .week-view{width:100%;min-width:0;grid-template-columns:36px repeat(7,minmax(0,1fr))}
+  .time-axis{background:#0e1014}.time-label{right:4px;font-size:8px}
+  .day-column{min-width:0}.week-view .day-head{flex-direction:column;gap:2px}.week-view .day-head span{font-size:7px}.week-view .day-head b{width:25px;height:25px;font-size:11px}
+  .week-view .event-card{left:2px;right:2px;padding:4px 2px;border-left-width:2px;border-radius:6px}.week-view .event-card b{font-size:8px}.week-view .event-card span{display:none}
   .day-view{width:100%;max-width:100%;grid-template-columns:44px minmax(0,1fr);overflow:hidden}.day-view .time-axis{border-radius:0 0 0 15px}.day-lane{min-width:0;overflow:hidden;border-radius:0 0 15px 0}.day-lane .day-head{padding-left:12px}.day-lane .day-head b{font-size:13px}.day-lane .event-card{left:8px;width:calc(100% - 16px)}
   .month-view{width:100%;min-width:0;grid-template-columns:repeat(7,minmax(0,1fr))}
   .month-weekday{height:30px;font-size:8px}.month-day{min-width:0;min-height:70px;padding:4px 2px}.month-number{width:22px;height:22px;margin:auto;font-size:10px}
@@ -73,6 +73,6 @@ main{max-width:1480px;margin:auto}.screen{display:none;animation:fade .2s ease}.
   .form-grid.three{column-gap:10px}.time-field{gap:8px;margin-bottom:13px}.time-field>span{font-size:11px}.time-field .time-select{height:48px;padding:0 38px 0 13px;font-size:16px;background-color:#0b0e13;border-color:#3a404c;border-radius:12px}
 }
 @media(max-width:380px){
-  .week-view{grid-template-columns:40px repeat(7,var(--mobile-day-width,calc((100vw - 40px)/3)))}.calendar{scroll-padding-left:40px}.period-label span{display:none}.month-day{min-height:64px}.form-grid.three{grid-template-columns:1fr 1fr}.form-grid.three .field:first-child{grid-column:1/-1}
+  .week-view{grid-template-columns:34px repeat(7,minmax(0,1fr))}.period-label span{display:none}.month-day{min-height:64px}.form-grid.three{grid-template-columns:1fr 1fr}.form-grid.three .field:first-child{grid-column:1/-1}
 }
 
