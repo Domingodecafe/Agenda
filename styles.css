@@ -84,3 +84,16 @@ main{max-width:1480px;margin:auto}.screen{display:none;animation:fade .2s ease}.
   .week-view{grid-template-columns:34px repeat(7,minmax(0,1fr))}.period-label span{display:none}.period-label strong{font-size:15px}.toolbar-today{padding:0 8px}.month-day{min-height:64px}.form-grid.three{grid-template-columns:1fr 1fr}.form-grid.three .field:first-child{grid-column:1/-1}
 }
 
+/* Financial status actions */
+.payment-bar{position:fixed;left:50%;bottom:84px;width:min(760px,calc(100% - 32px));max-width:760px;margin:0;transform:translateX(-50%);z-index:16}
+.payment-bar>.payment-total{display:flex;flex-direction:column;gap:3px;min-width:95px}
+.payment-bar>.payment-actions{display:grid;grid-template-columns:repeat(3,minmax(92px,1fr));gap:7px}
+.payment-actions button{white-space:nowrap;padding:10px 12px}
+@media(max-width:640px){
+  .payment-bar{left:10px;right:10px;bottom:76px;width:auto;transform:none;flex-direction:column;align-items:stretch;gap:8px}
+  .payment-bar>.payment-total{flex-direction:row;align-items:center;justify-content:space-between}
+  .payment-bar>.payment-actions{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .payment-actions button{padding:9px 5px;font-size:10px}
+  .client-finance-detail{padding-bottom:142px}
+}
+
