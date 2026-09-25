@@ -110,12 +110,7 @@
 
   function eventClass(item) {
     if (item.kind === 'block') return 'block';
-    const classes = [`event-${eventColor(item)}`];
-    if (item.status === 'Cancelado') classes.push('status-cancelled');
-    if (item.status === 'Realizado') classes.push('status-done');
-    if (item.status === 'Faltou') classes.push('status-missed');
-    if (item.status === 'Remarcado') classes.push('status-rescheduled');
-    return classes.join(' ');
+    return `event-${eventColor(item)}`;
   }
 
   function eventColor(item) {
@@ -323,9 +318,8 @@
     setSelectedColor('appointment', 'green');
     $('#appointment-title').textContent = 'Novo atendimento';
     $('#appointment-kicker').textContent = 'NOVO';
-    $('#edit-status-fields').classList.add('hidden');
+    $('#edit-financial-field').classList.add('hidden');
     $('#delete-appointment').classList.add('hidden');
-    $('#reschedule-appointment').classList.add('hidden');
     $('#appointment-recurrence').disabled = false;
     $('#form-error').textContent = '';
     setAppointmentKind('appointment');
@@ -362,14 +356,12 @@
     setTimeValue('#appointment-end', item.end);
     $('#appointment-value').value = item.value || 0;
     setSelectedColor('appointment', item.color || eventColor(item));
-    $('#appointment-status').value = item.status || 'Agendado';
     $('#financial-status').value = item.financialStatus || 'A receber';
     $('#block-label').value = item.label || '';
     $('#appointment-title').textContent = item.kind === 'block' ? 'Editar bloqueio' : 'Editar atendimento';
     $('#appointment-kicker').textContent = 'DETALHES';
-    $('#edit-status-fields').classList.toggle('hidden', item.kind === 'block');
+    $('#edit-financial-field').classList.toggle('hidden', item.kind === 'block');
     $('#delete-appointment').classList.remove('hidden');
-    $('#reschedule-appointment').classList.toggle('hidden', item.kind === 'block' || item.status === 'Remarcado');
     $('#appointment-recurrence').value = item.kind === 'appointment' ? item.recurrence || 'none' : 'none';
     $('#appointment-recurrence').disabled = item.kind !== 'appointment';
     setAppointmentKind(item.kind);
@@ -471,7 +463,7 @@
       clientId: client?.id || null, clientName: client?.name || '',
       type: $('#appointment-type').value, modality: $('#appointment-modality').value,
       value: Number($('#appointment-value').value || 0), color: $('#appointment-color').value,
-      status: $('#appointment-status').value, financialStatus: $('#financial-status').value
+      financialStatus: $('#financial-status').value
     };
 
     if (existingItem) {
@@ -492,6 +484,7 @@
         for (let index = 0; index < targetCount; index += 1) {
           const target = affected[index] || { id: uid(), createdAt: new Date().toISOString() };
           Object.assign(target, formData, { date: dates[index], recurrence: frequency, seriesId: nextSeriesId });
+          target.status ||= 'Agendado';
           if (!state.appointments.some(entry => entry.id === target.id)) state.appointments.push(target);
         }
       }
@@ -583,23 +576,6 @@
     $('#appointment-dialog').close(); renderCalendar(); showToast(scope === 'future' ? 'Esta sessão e as próximas foram excluídas.' : 'Item excluído.');
   }
 
-  async function rescheduleAppointment() {
-    const id = $('#appointment-id').value;
-    const original = state.appointments.find(item => item.id === id);
-    if (!original) return;
-    original.status = 'Remarcado';
-    await saveState();
-    const clone = { ...original };
-    $('#appointment-dialog').close();
-    resetAppointmentForm(clone.date, clone.start);
-    $('#appointment-client').value = clone.clientName;
-    $('#appointment-type').value = clone.type;
-    $('#appointment-modality').value = clone.modality;
-    $('#appointment-value').value = clone.value;
-    $('#appointment-dialog').showModal();
-    showToast('Escolha a nova data e salve.');
-  }
-
   async function deleteClient() {
     const id = $('#client-id').value;
     const client = state.clients.find(item => item.id === id);
@@ -674,13 +650,12 @@
   }
 
   function financeAppointmentRow(item, isPast) {
-    const eligible = item.financialStatus === 'A receber' || item.financialStatus === 'Não pago';
     const checked = paymentSelection.has(item.id);
     const date = parseDate(item.date).toLocaleDateString('pt-BR', { weekday:'short', day:'2-digit', month:'short', year:'numeric' });
     const statusClass = item.financialStatus === 'Pago' ? 'paid' : item.financialStatus === 'Não pago' ? 'unpaid' : '';
-    return `<label class="finance-appointment-row ${eligible ? 'selectable' : ''}">
-      <span class="payment-check">${eligible ? `<input type="checkbox" data-payment-id="${item.id}" ${checked ? 'checked' : ''} aria-label="Selecionar atendimento de ${escapeHTML(date)}">` : '<i>✓</i>'}</span>
-      <span class="appointment-date"><strong>${escapeHTML(date)}</strong><small>${escapeHTML(item.start)}–${escapeHTML(item.end)} · ${escapeHTML(item.status || 'Agendado')}</small></span>
+    return `<label class="finance-appointment-row selectable">
+      <span class="payment-check"><input type="checkbox" data-payment-id="${item.id}" ${checked ? 'checked' : ''} aria-label="Selecionar atendimento de ${escapeHTML(date)}"></span>
+      <span class="appointment-date"><strong>${escapeHTML(date)}</strong><small>${escapeHTML(item.start)}–${escapeHTML(item.end)}</small></span>
       <span class="status-chip ${statusClass}">${escapeHTML(item.financialStatus || 'A receber')}</span>
       <strong class="appointment-value">${formatMoney(item.value)}</strong>
     </label>`;
@@ -692,7 +667,7 @@
     const appointments = selectedClientAppointments();
     const past = appointments.filter(item => appointmentEnd(item) < now).sort((a,b) => appointmentEnd(b) - appointmentEnd(a));
     const future = appointments.filter(item => appointmentEnd(item) >= now).sort((a,b) => appointmentEnd(a) - appointmentEnd(b));
-    const validIds = new Set(appointments.filter(item => item.financialStatus === 'A receber' || item.financialStatus === 'Não pago').map(item => item.id));
+    const validIds = new Set(appointments.map(item => item.id));
     [...paymentSelection].forEach(id => { if (!validIds.has(id)) paymentSelection.delete(id); });
     $('#detail-client-name').textContent = summaryClient.name;
     $('#detail-client-subtitle').textContent = `${appointments.length} atendimento${appointments.length === 1 ? '' : 's'} no histórico completo`;
@@ -732,17 +707,28 @@
     renderClientFinanceDetail();
   }
 
-  async function receiveSelectedAppointments() {
+  async function applyFinancialStatus(status) {
     const selected = state.appointments.filter(item => paymentSelection.has(item.id));
     if (!selected.length) return;
     const total = selected.reduce((sum,item) => sum + Number(item.value || 0), 0);
-    const confirmed = await confirmAction('Confirmar recebimento?', `${selected.length} atendimento${selected.length === 1 ? '' : 's'} serão marcados como pagos, totalizando ${formatMoney(total)}.`, 'Confirmar recebimento', 'primary');
+    const descriptions = {
+      'Pago': ['Confirmar recebimento?', 'marcado como pago', 'marcados como pagos', 'Confirmar pagamento'],
+      'A receber': ['Alterar para A receber?', 'marcado como A receber', 'marcados como A receber', 'Confirmar alteração'],
+      'Não pago': ['Alterar para Não pago?', 'marcado como não pago', 'marcados como não pagos', 'Confirmar alteração']
+    };
+    const [title, singularAction, pluralAction, buttonText] = descriptions[status] || descriptions['A receber'];
+    const confirmed = await confirmAction(title, `${selected.length} atendimento${selected.length === 1 ? '' : 's'} ${selected.length === 1 ? 'será' : 'serão'} ${selected.length === 1 ? singularAction : pluralAction}, totalizando ${formatMoney(total)}.`, buttonText, status === 'Não pago' ? 'danger' : 'primary');
     if (!confirmed) return;
-    selected.forEach(item => { item.financialStatus = 'Pago'; });
+    selected.forEach(item => { item.financialStatus = status; });
     await saveState();
+    const currentClient = { ...summaryClient };
     paymentSelection.clear();
+    renderSummary();
+    summaryClient = currentClient;
+    $('#summary-overview').classList.add('hidden');
+    $('#client-finance-detail').classList.remove('hidden');
     renderClientFinanceDetail();
-    showToast(`${formatMoney(total)} recebido em ${selected.length} atendimento${selected.length === 1 ? '' : 's'}.`);
+    showToast(`${selected.length} atendimento${selected.length === 1 ? '' : 's'} alterado${selected.length === 1 ? '' : 's'} para ${status}.`);
   }
 
   function applyClientDefaultsToAppointment(event) {
@@ -781,7 +767,6 @@
     $('#appointment-start').addEventListener('input', updateEndFromStart);
     $('#appointment-start').addEventListener('change', updateEndFromStart);
     $('#delete-appointment').addEventListener('click', deleteAppointment);
-    $('#reschedule-appointment').addEventListener('click', rescheduleAppointment);
     $('#new-client').addEventListener('click', () => openClientDialog());
     $('#client-form').addEventListener('submit', submitClient);
     $('#client-list').addEventListener('click', event => { const card = event.target.closest('[data-client-id]'); if (card) openClientDialog(card.dataset.clientId); });
@@ -795,7 +780,7 @@
     $('#summary-back').addEventListener('click', renderSummary);
     $('#select-past-due').addEventListener('click', selectPastDueAppointments);
     $('#clear-payment-selection').addEventListener('click', () => { paymentSelection.clear(); renderClientFinanceDetail(); });
-    $('#receive-selected').addEventListener('click', receiveSelectedAppointments);
+    $$('[data-financial-action]').forEach(button => button.addEventListener('click', () => applyFinancialStatus(button.dataset.financialAction)));
     $('#client-finance-detail').addEventListener('change', event => {
       const checkbox = event.target.closest('[data-payment-id]');
       if (!checkbox) return;
