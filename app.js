@@ -18,6 +18,8 @@
   let storageMode = 'indexedDB';
   let toastTimer;
   let suppressCalendarClickUntil = 0;
+  let summaryClient = null;
+  const paymentSelection = new Set();
 
   const uid = () => crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
   const pad = value => String(value).padStart(2, '0');
@@ -545,12 +547,14 @@
     showToast(id ? 'Cliente atualizado.' : 'Cliente cadastrado.');
   }
 
-  function confirmAction(title, text, actionLabel = 'Excluir') {
+  function confirmAction(title, text, actionLabel = 'Excluir', tone = 'danger') {
     return new Promise(resolve => {
       $('#confirm-title').textContent = title;
       $('#confirm-text').textContent = text;
       $('#confirm-action').textContent = actionLabel;
+      $('#confirm-action').className = tone === 'primary' ? 'primary-button' : 'danger-button';
       const dialog = $('#confirm-dialog');
+      dialog.returnValue = 'cancel';
       const handler = () => { dialog.removeEventListener('close', handler); resolve(dialog.returnValue === 'confirm'); };
       dialog.addEventListener('close', handler);
       dialog.showModal();
@@ -604,10 +608,39 @@
     await saveState(); $('#client-dialog').close(); renderClients(); showToast('Cliente excluído.');
   }
 
+  const normalizeClientName = name => String(name || '').trim().toLocaleLowerCase();
+
+  function clientMatchesAppointment(client, appointment) {
+    return Boolean(client && ((client.id && appointment.clientId === client.id) || normalizeClientName(appointment.clientName) === normalizeClientName(client.name)));
+  }
+
+  function appointmentEnd(appointment) {
+    const date = parseDate(appointment.date);
+    const minutes = timeMinutes(appointment.end || appointment.start || '00:00');
+    date.setHours(Math.floor(minutes / 60), minutes % 60, 0, 0);
+    return date;
+  }
+
+  function summaryStatus(items) {
+    const paid = items.filter(item => item.financialStatus === 'Pago').length;
+    if (paid === items.length) return ['Pago', 'paid'];
+    if (paid === 0) return ['Pendente', 'unpaid'];
+    return ['Parcial', 'partial'];
+  }
+
+  function summaryClientKey(item) {
+    const registered = state.clients.find(client => client.id === item.clientId) || state.clients.find(client => normalizeClientName(client.name) === normalizeClientName(item.clientName));
+    return registered ? `id:${registered.id}` : `name:${normalizeClientName(item.clientName)}`;
+  }
+
   function renderSummary() {
+    summaryClient = null;
+    paymentSelection.clear();
+    $('#summary-overview').classList.remove('hidden');
+    $('#client-finance-detail').classList.add('hidden');
     const key = $('#summary-month').value || isoDate(new Date()).slice(0,7);
     $('#summary-month').value = key;
-    const items = state.appointments.filter(item => item.kind === 'appointment' && item.date.startsWith(key) && item.status !== 'Cancelado' && item.status !== 'Remarcado');
+    const items = state.appointments.filter(item => item.kind === 'appointment' && item.date.startsWith(key));
     const sum = filter => items.filter(filter).reduce((total,item) => total + Number(item.value || 0), 0);
     const received = sum(item => item.financialStatus === 'Pago');
     const receivable = sum(item => item.financialStatus === 'A receber');
@@ -618,11 +651,98 @@
     ];
     $('#finance-cards').innerHTML = cards.map(([label,value,color]) => `<article class="finance-card" style="--card-color:${color}"><span>${label}</span><strong>${formatMoney(value)}</strong><i></i></article>`).join('');
     const monthDate = parseDate(`${key}-01`);
-    $('#summary-list-title').textContent = `${items.length} atendimento${items.length === 1 ? '' : 's'} em ${months[monthDate.getMonth()]}`;
+    const groups = new Map();
+    items.forEach(item => {
+      const key = summaryClientKey(item);
+      if (!groups.has(key)) groups.set(key, { key, id: item.clientId || '', name: item.clientName, items: [] });
+      groups.get(key).items.push(item);
+    });
+    const clients = [...groups.values()].sort((a,b) => a.name.localeCompare(b.name));
+    $('#summary-list-title').textContent = `${clients.length} cliente${clients.length === 1 ? '' : 's'} em ${months[monthDate.getMonth()]}`;
     if (!items.length) {
       $('#summary-list').innerHTML = '<div class="empty-state" style="min-height:260px"><div><span class="empty-icon">◔</span><h3>Nenhum movimento neste mês</h3><p>Os valores dos atendimentos aparecerão aqui conforme você agenda.</p></div></div>'; return;
     }
-    $('#summary-list').innerHTML = items.sort((a,b) => a.date.localeCompare(b.date)).map(item => `<div class="summary-row"><strong>${escapeHTML(item.clientName)}</strong><span class="summary-date">${parseDate(item.date).toLocaleDateString('pt-BR',{day:'2-digit',month:'short'})} · ${item.start}</span><span class="status-chip ${item.financialStatus === 'Pago' ? 'paid' : item.financialStatus === 'Não pago' ? 'unpaid' : ''}">${item.financialStatus}</span><strong>${formatMoney(item.value)}</strong></div>`).join('');
+    $('#summary-list').innerHTML = clients.map(group => {
+      const [status, statusClass] = summaryStatus(group.items);
+      const total = group.items.reduce((sum,item) => sum + Number(item.value || 0), 0);
+      return `<button class="summary-row summary-client-row" data-summary-client="${escapeHTML(group.key)}" type="button"><span class="summary-client-name"><strong>${escapeHTML(group.name)}</strong><small>${group.items.length} atendimento${group.items.length === 1 ? '' : 's'}</small></span><span class="status-chip ${statusClass}">${status}</span><strong>${formatMoney(total)}</strong><span class="row-arrow">›</span></button>`;
+    }).join('');
+  }
+
+  function selectedClientAppointments() {
+    return state.appointments.filter(item => item.kind === 'appointment' && clientMatchesAppointment(summaryClient, item));
+  }
+
+  function financeAppointmentRow(item, isPast) {
+    const eligible = item.financialStatus === 'A receber' || item.financialStatus === 'Não pago';
+    const checked = paymentSelection.has(item.id);
+    const date = parseDate(item.date).toLocaleDateString('pt-BR', { weekday:'short', day:'2-digit', month:'short', year:'numeric' });
+    const statusClass = item.financialStatus === 'Pago' ? 'paid' : item.financialStatus === 'Não pago' ? 'unpaid' : '';
+    return `<label class="finance-appointment-row ${eligible ? 'selectable' : ''}">
+      <span class="payment-check">${eligible ? `<input type="checkbox" data-payment-id="${item.id}" ${checked ? 'checked' : ''} aria-label="Selecionar atendimento de ${escapeHTML(date)}">` : '<i>✓</i>'}</span>
+      <span class="appointment-date"><strong>${escapeHTML(date)}</strong><small>${escapeHTML(item.start)}–${escapeHTML(item.end)} · ${escapeHTML(item.status || 'Agendado')}</small></span>
+      <span class="status-chip ${statusClass}">${escapeHTML(item.financialStatus || 'A receber')}</span>
+      <strong class="appointment-value">${formatMoney(item.value)}</strong>
+    </label>`;
+  }
+
+  function renderClientFinanceDetail() {
+    if (!summaryClient) return renderSummary();
+    const now = new Date();
+    const appointments = selectedClientAppointments();
+    const past = appointments.filter(item => appointmentEnd(item) < now).sort((a,b) => appointmentEnd(b) - appointmentEnd(a));
+    const future = appointments.filter(item => appointmentEnd(item) >= now).sort((a,b) => appointmentEnd(a) - appointmentEnd(b));
+    const validIds = new Set(appointments.filter(item => item.financialStatus === 'A receber' || item.financialStatus === 'Não pago').map(item => item.id));
+    [...paymentSelection].forEach(id => { if (!validIds.has(id)) paymentSelection.delete(id); });
+    $('#detail-client-name').textContent = summaryClient.name;
+    $('#detail-client-subtitle').textContent = `${appointments.length} atendimento${appointments.length === 1 ? '' : 's'} no histórico completo`;
+    $('#past-count').textContent = `${past.length} ${past.length === 1 ? 'sessão' : 'sessões'}`;
+    $('#future-count').textContent = `${future.length} ${future.length === 1 ? 'sessão' : 'sessões'}`;
+    $('#past-appointments').innerHTML = past.length ? past.map(item => financeAppointmentRow(item, true)).join('') : '<p class="section-empty">Nenhum atendimento passado.</p>';
+    $('#future-appointments').innerHTML = future.length ? future.map(item => financeAppointmentRow(item, false)).join('') : '<p class="section-empty">Nenhum atendimento futuro.</p>';
+    updatePaymentBar();
+  }
+
+  function openClientFinanceDetail(key) {
+    const monthItems = state.appointments.filter(item => item.kind === 'appointment' && summaryClientKey(item) === key);
+    const sample = monthItems[0];
+    if (!sample) return;
+    summaryClient = { id: sample.clientId || '', name: sample.clientName };
+    paymentSelection.clear();
+    $('#summary-overview').classList.add('hidden');
+    $('#client-finance-detail').classList.remove('hidden');
+    renderClientFinanceDetail();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function updatePaymentBar() {
+    const selected = state.appointments.filter(item => paymentSelection.has(item.id));
+    const total = selected.reduce((sum,item) => sum + Number(item.value || 0), 0);
+    $('#payment-selection-count').textContent = `${selected.length} selecionado${selected.length === 1 ? '' : 's'}`;
+    $('#payment-selection-total').textContent = formatMoney(total);
+    $('#payment-bar').classList.toggle('hidden', !selected.length);
+    $('#clear-payment-selection').classList.toggle('hidden', !selected.length);
+  }
+
+  function selectPastDueAppointments() {
+    const now = new Date();
+    selectedClientAppointments().forEach(item => {
+      if (appointmentEnd(item) < now && (item.financialStatus === 'A receber' || item.financialStatus === 'Não pago')) paymentSelection.add(item.id);
+    });
+    renderClientFinanceDetail();
+  }
+
+  async function receiveSelectedAppointments() {
+    const selected = state.appointments.filter(item => paymentSelection.has(item.id));
+    if (!selected.length) return;
+    const total = selected.reduce((sum,item) => sum + Number(item.value || 0), 0);
+    const confirmed = await confirmAction('Confirmar recebimento?', `${selected.length} atendimento${selected.length === 1 ? '' : 's'} serão marcados como pagos, totalizando ${formatMoney(total)}.`, 'Confirmar recebimento', 'primary');
+    if (!confirmed) return;
+    selected.forEach(item => { item.financialStatus = 'Pago'; });
+    await saveState();
+    paymentSelection.clear();
+    renderClientFinanceDetail();
+    showToast(`${formatMoney(total)} recebido em ${selected.length} atendimento${selected.length === 1 ? '' : 's'}.`);
   }
 
   function applyClientDefaultsToAppointment(event) {
@@ -668,6 +788,21 @@
     $('#client-search').addEventListener('input', renderClients);
     $('#delete-client').addEventListener('click', deleteClient);
     $('#summary-month').addEventListener('change', renderSummary);
+    $('#summary-list').addEventListener('click', event => {
+      const row = event.target.closest('[data-summary-client]');
+      if (row) openClientFinanceDetail(row.dataset.summaryClient);
+    });
+    $('#summary-back').addEventListener('click', renderSummary);
+    $('#select-past-due').addEventListener('click', selectPastDueAppointments);
+    $('#clear-payment-selection').addEventListener('click', () => { paymentSelection.clear(); renderClientFinanceDetail(); });
+    $('#receive-selected').addEventListener('click', receiveSelectedAppointments);
+    $('#client-finance-detail').addEventListener('change', event => {
+      const checkbox = event.target.closest('[data-payment-id]');
+      if (!checkbox) return;
+      if (checkbox.checked) paymentSelection.add(checkbox.dataset.paymentId);
+      else paymentSelection.delete(checkbox.dataset.paymentId);
+      updatePaymentBar();
+    });
     window.addEventListener('resize', () => { if (state.settings.view === 'week') positionMobileWeek(); });
     $$('[data-close]').forEach(button => button.addEventListener('click', () => document.getElementById(button.dataset.close).close()));
     window.addEventListener('beforeinstallprompt', event => { event.preventDefault(); deferredInstall = event; $('#install-button').classList.remove('hidden'); });
