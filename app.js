@@ -19,6 +19,7 @@
   let toastTimer;
   let suppressCalendarClickUntil = 0;
   let summaryClient = null;
+  let summaryVisibleCount = 10;
   const paymentSelection = new Set();
 
   const uid = () => crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -87,13 +88,17 @@
   }
 
   function setTab(tab) {
+    const enteringSummary = tab === 'summary' && activeTab !== 'summary';
     activeTab = tab;
     $$('.screen').forEach(screen => screen.classList.toggle('active', screen.id === `${tab}-screen`));
     $$('.bottom-nav button').forEach(button => button.classList.toggle('active', button.dataset.tab === tab));
     $('#fab').classList.toggle('hidden', tab !== 'agenda');
     $('#today-header').classList.toggle('hidden', tab !== 'agenda');
     if (tab === 'clients') renderClients();
-    if (tab === 'summary') renderSummary();
+    if (tab === 'summary') {
+      if (enteringSummary) summaryVisibleCount = 10;
+      renderSummary();
+    }
   }
 
   function setView(view) {
@@ -119,13 +124,18 @@
     return item.color || client?.color || ['green', 'purple', 'yellow'][hashColor(item.clientName)];
   }
 
+  function appointmentDisplayName(item) {
+    if (item.kind === 'block') return item.label || 'Horário bloqueado';
+    return item.clientName || (item.type === 'Outro' ? 'Compromisso particular' : 'Atendimento');
+  }
+
   function eventCard(item) {
     const start = Math.max(timeMinutes(item.start), HOURS_START * 60);
     const end = Math.min(timeMinutes(item.end), HOURS_END * 60);
     if (end <= HOURS_START * 60 || start >= HOURS_END * 60) return '';
     const top = 68 + start - HOURS_START * 60;
     const height = Math.max(26, end - start - 2);
-    const title = item.kind === 'block' ? item.label || 'Horário bloqueado' : item.clientName;
+    const title = appointmentDisplayName(item);
     const subtitle = item.kind === 'block' ? `${item.start} — ${item.end}` : `${item.start} · ${item.modality}`;
     return `<button class="event-card ${eventClass(item)}" data-event-id="${item.id}" style="top:${top}px;height:${height}px" type="button" title="${escapeHTML(title)}"><b>${escapeHTML(title)}</b><span>${escapeHTML(subtitle)}</span></button>`;
   }
@@ -176,7 +186,7 @@
       const events = relevantEvents(date);
       const classes = `${date.getMonth() !== anchorDate.getMonth() ? 'outside' : ''} ${isoDate(date) === isoDate(new Date()) ? 'today' : ''}`;
       cells += `<div class="month-day ${classes}" data-date="${isoDate(date)}"><span class="month-number">${date.getDate()}</span><div class="month-events">
-        ${events.slice(0,3).map(item => `<button class="month-event event-${eventColor(item)} ${item.financialStatus === 'Pago' ? 'paid' : ''}" data-event-id="${item.id}" type="button">${escapeHTML(item.start)} · ${escapeHTML(item.kind === 'block' ? item.label || 'Bloqueio' : item.clientName)}</button>`).join('')}
+        ${events.slice(0,3).map(item => `<button class="month-event event-${eventColor(item)} ${item.financialStatus === 'Pago' ? 'paid' : ''}" data-event-id="${item.id}" type="button">${escapeHTML(item.start)} · ${escapeHTML(appointmentDisplayName(item))}</button>`).join('')}
         ${events.length > 3 ? `<span class="month-more">+ ${events.length - 3} outro(s)</span>` : ''}</div></div>`;
     }
     $('#calendar').innerHTML = `<div class="month-view">${headings}${cells}</div>`;
@@ -332,9 +342,29 @@
     $('#appointment-fields').classList.toggle('hidden', kind === 'block');
     $('#appointment-extra').classList.toggle('hidden', kind === 'block');
     $('#block-label-wrap').classList.toggle('hidden', kind !== 'block');
-    $('#appointment-client').required = kind === 'appointment';
     $('#appointment-recurrence').disabled = kind !== 'appointment';
     $('#appointment-title').textContent = $('#appointment-id').value ? (kind === 'block' ? 'Editar bloqueio' : 'Editar atendimento') : (kind === 'block' ? 'Novo bloqueio' : 'Novo atendimento');
+    updateAppointmentTypeFinanceState();
+  }
+
+  function updateAppointmentTypeFinanceState({ restorePaidValue = false } = {}) {
+    const isAppointment = $('#appointment-kind').value === 'appointment';
+    const isFree = isAppointment && $('#appointment-type').value === 'Outro';
+    const clientInput = $('#appointment-client');
+    const valueInput = $('#appointment-value');
+    clientInput.required = isAppointment && !isFree;
+    $('#appointment-client-label').textContent = isFree ? 'Cliente (opcional)' : 'Cliente';
+    valueInput.readOnly = isFree;
+    $('#appointment-value-field').classList.toggle('is-free', isFree);
+    if (isFree) {
+      valueInput.value = '0';
+    } else if (isAppointment && restorePaidValue) {
+      const clientName = clientInput.value.trim().toLocaleLowerCase();
+      const client = state.clients.find(item => item.name.toLocaleLowerCase() === clientName);
+      valueInput.value = client?.defaultValue || 0;
+    }
+    const canShowFinancialStatus = isAppointment && !isFree && Boolean($('#appointment-id').value);
+    $('#edit-financial-field').classList.toggle('hidden', !canShowFinancialStatus);
   }
 
   function openNewAppointment(date, start) {
@@ -365,6 +395,7 @@
     $('#appointment-recurrence').value = item.kind === 'appointment' ? item.recurrence || 'none' : 'none';
     $('#appointment-recurrence').disabled = item.kind !== 'appointment';
     setAppointmentKind(item.kind);
+    updateAppointmentTypeFinanceState();
     $('#appointment-dialog').showModal();
   }
 
@@ -416,13 +447,15 @@
     event.preventDefault();
     const id = $('#appointment-id').value;
     const kind = $('#appointment-kind').value;
+    const appointmentType = $('#appointment-type').value;
+    const isFreeAppointment = kind === 'appointment' && appointmentType === 'Outro';
     const date = $('#appointment-date').value;
     const start = $('#appointment-start').value;
     const end = $('#appointment-end').value;
     if (!date || !start || !end || timeMinutes(end) <= timeMinutes(start)) {
       $('#form-error').textContent = 'Confira a data e informe um horário final posterior ao inicial.'; return;
     }
-    if (kind === 'appointment' && !$('#appointment-client').value.trim()) {
+    if (kind === 'appointment' && !isFreeAppointment && !$('#appointment-client').value.trim()) {
       $('#form-error').textContent = 'Informe o nome do cliente.'; return;
     }
     const existingItem = id ? state.appointments.find(entry => entry.id === id) : null;
@@ -449,7 +482,7 @@
     if (editScope === 'cancel') return;
 
     let client = null;
-    if (kind === 'appointment') {
+    if (kind === 'appointment' && $('#appointment-client').value.trim()) {
       const clientName = $('#appointment-client').value.trim();
       client = state.clients.find(item => item.name.toLocaleLowerCase() === clientName.toLocaleLowerCase());
       if (!client) {
@@ -461,9 +494,9 @@
       kind, date, start, end,
       label: $('#block-label').value.trim(),
       clientId: client?.id || null, clientName: client?.name || '',
-      type: $('#appointment-type').value, modality: $('#appointment-modality').value,
-      value: Number($('#appointment-value').value || 0), color: $('#appointment-color').value,
-      financialStatus: $('#financial-status').value
+      type: appointmentType, modality: $('#appointment-modality').value,
+      value: isFreeAppointment ? 0 : Number($('#appointment-value').value || 0), color: $('#appointment-color').value,
+      financialStatus: isFreeAppointment ? (existingItem?.financialStatus || 'A receber') : $('#financial-status').value
     };
 
     if (existingItem) {
@@ -616,7 +649,7 @@
     $('#client-finance-detail').classList.add('hidden');
     const key = $('#summary-month').value || isoDate(new Date()).slice(0,7);
     $('#summary-month').value = key;
-    const items = state.appointments.filter(item => item.kind === 'appointment' && item.date.startsWith(key));
+    const items = state.appointments.filter(item => item.kind === 'appointment' && item.type !== 'Outro' && item.date.startsWith(key));
     const sum = filter => items.filter(filter).reduce((total,item) => total + Number(item.value || 0), 0);
     const received = sum(item => item.financialStatus === 'Pago');
     const receivable = sum(item => item.financialStatus === 'A receber');
@@ -633,20 +666,25 @@
       if (!groups.has(key)) groups.set(key, { key, id: item.clientId || '', name: item.clientName, items: [] });
       groups.get(key).items.push(item);
     });
-    const clients = [...groups.values()].sort((a,b) => a.name.localeCompare(b.name));
+    const statusPriority = { Pendente: 0, Parcial: 1, Pago: 2 };
+    const clients = [...groups.values()].map(group => {
+      const [status, statusClass] = summaryStatus(group.items);
+      return { ...group, status, statusClass };
+    }).sort((a,b) => statusPriority[a.status] - statusPriority[b.status] || a.name.localeCompare(b.name, 'pt-BR'));
     $('#summary-list-title').textContent = `${clients.length} cliente${clients.length === 1 ? '' : 's'} em ${months[monthDate.getMonth()]}`;
     if (!items.length) {
       $('#summary-list').innerHTML = '<div class="empty-state" style="min-height:260px"><div><span class="empty-icon">◔</span><h3>Nenhum movimento neste mês</h3><p>Os valores dos atendimentos aparecerão aqui conforme você agenda.</p></div></div>'; return;
     }
-    $('#summary-list').innerHTML = clients.map(group => {
-      const [status, statusClass] = summaryStatus(group.items);
+    const visibleClients = clients.slice(0, summaryVisibleCount);
+    const remaining = Math.max(0, clients.length - visibleClients.length);
+    $('#summary-list').innerHTML = visibleClients.map(group => {
       const total = group.items.reduce((sum,item) => sum + Number(item.value || 0), 0);
-      return `<button class="summary-row summary-client-row" data-summary-client="${escapeHTML(group.key)}" type="button"><span class="summary-client-name"><strong>${escapeHTML(group.name)}</strong><small>${group.items.length} atendimento${group.items.length === 1 ? '' : 's'}</small></span><span class="status-chip ${statusClass}">${status}</span><strong>${formatMoney(total)}</strong><span class="row-arrow">›</span></button>`;
-    }).join('');
+      return `<button class="summary-row summary-client-row" data-summary-client="${escapeHTML(group.key)}" type="button"><span class="summary-client-name"><strong>${escapeHTML(group.name)}</strong><small>${group.items.length} atendimento${group.items.length === 1 ? '' : 's'}</small></span><span class="status-chip ${group.statusClass}">${group.status}</span><strong>${formatMoney(total)}</strong><span class="row-arrow">›</span></button>`;
+    }).join('') + (remaining ? `<div class="summary-more-wrap"><button class="summary-more-button" data-summary-more type="button">Mostrar mais 10 <span>${remaining} restante${remaining === 1 ? '' : 's'}</span></button></div>` : '');
   }
 
   function selectedClientAppointments() {
-    return state.appointments.filter(item => item.kind === 'appointment' && clientMatchesAppointment(summaryClient, item));
+    return state.appointments.filter(item => item.kind === 'appointment' && item.type !== 'Outro' && clientMatchesAppointment(summaryClient, item));
   }
 
   function financeAppointmentRow(item, isPast) {
@@ -679,7 +717,7 @@
   }
 
   function openClientFinanceDetail(key) {
-    const monthItems = state.appointments.filter(item => item.kind === 'appointment' && summaryClientKey(item) === key);
+    const monthItems = state.appointments.filter(item => item.kind === 'appointment' && item.type !== 'Outro' && summaryClientKey(item) === key);
     const sample = monthItems[0];
     if (!sample) return;
     summaryClient = { id: sample.clientId || '', name: sample.clientName };
@@ -732,6 +770,7 @@
   }
 
   function applyClientDefaultsToAppointment(event) {
+    if ($('#appointment-type').value === 'Outro') return;
     const client = state.clients.find(item => item.name.toLocaleLowerCase() === event.target.value.trim().toLocaleLowerCase());
     if (!client) return;
     if (Number($('#appointment-value').value) === 0) $('#appointment-value').value = client.defaultValue || 0;
@@ -762,6 +801,7 @@
     $$('.type-toggle button').forEach(button => button.addEventListener('click', () => setAppointmentKind(button.dataset.kind)));
     $$('[data-color-picker] button').forEach(button => button.addEventListener('click', () => setSelectedColor(button.closest('[data-color-picker]').dataset.colorPicker, button.dataset.color)));
     $('#appointment-form').addEventListener('submit', submitAppointment);
+    $('#appointment-type').addEventListener('change', () => updateAppointmentTypeFinanceState({ restorePaidValue: true }));
     $('#appointment-client').addEventListener('input', applyClientDefaultsToAppointment);
     $('#appointment-client').addEventListener('change', applyClientDefaultsToAppointment);
     $('#appointment-start').addEventListener('input', updateEndFromStart);
@@ -772,8 +812,10 @@
     $('#client-list').addEventListener('click', event => { const card = event.target.closest('[data-client-id]'); if (card) openClientDialog(card.dataset.clientId); });
     $('#client-search').addEventListener('input', renderClients);
     $('#delete-client').addEventListener('click', deleteClient);
-    $('#summary-month').addEventListener('change', renderSummary);
+    $('#summary-month').addEventListener('change', () => { summaryVisibleCount = 10; renderSummary(); });
     $('#summary-list').addEventListener('click', event => {
+      const moreButton = event.target.closest('[data-summary-more]');
+      if (moreButton) { summaryVisibleCount += 10; renderSummary(); return; }
       const row = event.target.closest('[data-summary-client]');
       if (row) openClientFinanceDetail(row.dataset.summaryClient);
     });
