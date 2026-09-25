@@ -374,14 +374,48 @@
     $('#appointment-dialog').showModal();
   }
 
-  function recurrenceDates(date, frequency) {
+  function recurrenceDates(date, frequency, requestedCount = null) {
     const result = [parseDate(date)];
     if (frequency === 'none') return result;
-    const count = frequency === 'weekly' ? 52 : frequency === 'biweekly' ? 26 : 12;
+    const count = requestedCount ?? (frequency === 'weekly' ? 52 : frequency === 'biweekly' ? 26 : 12);
     for (let index = 1; index < count; index += 1) {
       result.push(frequency === 'monthly' ? addMonths(result[0], index) : addDays(result[0], index * (frequency === 'biweekly' ? 14 : 7)));
     }
     return result;
+  }
+
+  function isRecurringItem(item) {
+    return Boolean(item?.seriesId && (item.recurrence || 'none') !== 'none');
+  }
+
+  function seriesOccurrencesFrom(item) {
+    return state.appointments
+      .filter(entry => entry.id === item.id || (item.seriesId && entry.seriesId === item.seriesId && entry.date >= item.date))
+      .sort((a, b) => {
+        if (a.id === item.id) return -1;
+        if (b.id === item.id) return 1;
+        return `${a.date} ${a.start}`.localeCompare(`${b.date} ${b.start}`);
+      });
+  }
+
+  function chooseSeriesScope({ title, text, singleLabel = 'Somente esta', futureLabel = 'Esta e futuras', allowSingle = true, danger = false }) {
+    return new Promise(resolve => {
+      $('#scope-title').textContent = title;
+      $('#scope-text').textContent = text;
+      $('#scope-single').textContent = singleLabel;
+      $('#scope-single').classList.toggle('hidden', !allowSingle);
+      const futureButton = $('#scope-future');
+      futureButton.textContent = futureLabel;
+      futureButton.className = danger ? 'danger-button' : 'primary-button';
+      const dialog = $('#scope-dialog');
+      dialog.returnValue = 'cancel';
+      const handler = () => {
+        dialog.removeEventListener('close', handler);
+        resolve(dialog.returnValue || 'cancel');
+      };
+      dialog.addEventListener('close', handler);
+      dialog.showModal();
+    });
   }
 
   async function submitAppointment(event) {
@@ -397,6 +431,29 @@
     if (kind === 'appointment' && !$('#appointment-client').value.trim()) {
       $('#form-error').textContent = 'Informe o nome do cliente.'; return;
     }
+    const existingItem = id ? state.appointments.find(entry => entry.id === id) : null;
+    if (id && !existingItem) return;
+    const previousFrequency = existingItem?.recurrence || 'none';
+    const frequency = kind === 'appointment' ? $('#appointment-recurrence').value : 'none';
+    const recurrenceChanged = Boolean(existingItem && previousFrequency !== frequency);
+    let editScope = 'single';
+    if (existingItem && recurrenceChanged) {
+      editScope = await chooseSeriesScope({
+        title: 'Alterar recorrência?',
+        text: 'A nova recorrência será aplicada a esta sessão e a todas as próximas. As sessões anteriores serão preservadas.',
+        futureLabel: 'Aplicar a esta e futuras',
+        allowSingle: false
+      });
+    } else if (isRecurringItem(existingItem)) {
+      editScope = await chooseSeriesScope({
+        title: 'Aplicar alterações',
+        text: 'Deseja alterar somente esta sessão ou esta e todas as próximas da sequência?',
+        singleLabel: 'Alterar somente esta',
+        futureLabel: 'Alterar esta e futuras'
+      });
+    }
+    if (editScope === 'cancel') return;
+
     let client = null;
     if (kind === 'appointment') {
       const clientName = $('#appointment-client').value.trim();
@@ -406,46 +463,47 @@
         state.clients.push(client);
       }
     }
-    let recurrenceChanged = false;
-    if (id) {
-      const item = state.appointments.find(entry => entry.id === id);
-      const previousFrequency = item.recurrence || 'none';
-      const frequency = kind === 'appointment' ? $('#appointment-recurrence').value : 'none';
-      const originalDate = item.date;
-      const seriesId = item.seriesId || uid();
-      recurrenceChanged = previousFrequency !== frequency;
-      if (recurrenceChanged && item.seriesId) {
-        state.appointments = state.appointments.filter(entry => entry.id === id || entry.seriesId !== item.seriesId || entry.date < originalDate);
-      }
-      Object.assign(item, {
-        kind, date, start, end,
-        label: $('#block-label').value.trim(),
-        clientId: client?.id || null, clientName: client?.name || '',
-        type: $('#appointment-type').value, modality: $('#appointment-modality').value,
-        value: Number($('#appointment-value').value || 0), color: $('#appointment-color').value, status: $('#appointment-status').value,
-        financialStatus: $('#financial-status').value, recurrence: frequency,
-        seriesId: frequency === 'none' ? null : seriesId
-      });
-      if (recurrenceChanged && frequency !== 'none') {
-        recurrenceDates(date, frequency).slice(1).forEach(occurrence => state.appointments.push({
-          ...item, id: uid(), date: isoDate(occurrence), status: 'Agendado', financialStatus: 'A receber', createdAt: new Date().toISOString()
-        }));
+    const formData = {
+      kind, date, start, end,
+      label: $('#block-label').value.trim(),
+      clientId: client?.id || null, clientName: client?.name || '',
+      type: $('#appointment-type').value, modality: $('#appointment-modality').value,
+      value: Number($('#appointment-value').value || 0), color: $('#appointment-color').value,
+      status: $('#appointment-status').value, financialStatus: $('#financial-status').value
+    };
+
+    if (existingItem) {
+      if (editScope === 'single') {
+        Object.assign(existingItem, formData, { recurrence: previousFrequency, seriesId: existingItem.seriesId || null });
+      } else {
+        const originalDate = existingItem.date;
+        const affected = seriesOccurrencesFrom(existingItem);
+        const targetCount = frequency === 'none' ? 1 : previousFrequency === 'none' ? recurrenceDates(date, frequency).length : affected.length;
+        const scheduleChanged = originalDate !== date || previousFrequency !== frequency;
+        const dates = scheduleChanged
+          ? recurrenceDates(date, frequency, targetCount).map(isoDate)
+          : affected.slice(0, targetCount).map(entry => entry.date);
+        const hasPast = Boolean(existingItem.seriesId && state.appointments.some(entry => entry.seriesId === existingItem.seriesId && entry.date < originalDate));
+        const nextSeriesId = frequency === 'none' ? null : recurrenceChanged && hasPast ? uid() : existingItem.seriesId || uid();
+        const removedIds = new Set(affected.slice(targetCount).map(entry => entry.id));
+        if (removedIds.size) state.appointments = state.appointments.filter(entry => !removedIds.has(entry.id));
+        for (let index = 0; index < targetCount; index += 1) {
+          const target = affected[index] || { id: uid(), createdAt: new Date().toISOString() };
+          Object.assign(target, formData, { date: dates[index], recurrence: frequency, seriesId: nextSeriesId });
+          if (!state.appointments.some(entry => entry.id === target.id)) state.appointments.push(target);
+        }
       }
     } else {
-      const seriesId = uid();
-      const frequency = kind === 'appointment' ? $('#appointment-recurrence').value : 'none';
+      const seriesId = frequency === 'none' ? null : uid();
       recurrenceDates(date, frequency).forEach(occurrence => state.appointments.push({
-        id: uid(), seriesId, kind, date: isoDate(occurrence), start, end,
-        label: $('#block-label').value.trim(), clientId: client?.id || null, clientName: client?.name || '',
-        type: $('#appointment-type').value, modality: $('#appointment-modality').value,
-        value: Number($('#appointment-value').value || 0), color: $('#appointment-color').value, recurrence: frequency,
+        ...formData, id: uid(), seriesId, date: isoDate(occurrence), recurrence: frequency,
         status: 'Agendado', financialStatus: 'A receber', createdAt: new Date().toISOString()
       }));
     }
     await saveState();
     $('#appointment-dialog').close();
     renderCalendar();
-    showToast(recurrenceChanged ? 'Recorrência atualizada e próximas sessões criadas.' : id ? 'Atendimento atualizado.' : 'Atendimento salvo no dispositivo.');
+    showToast(editScope === 'future' ? 'Esta sessão e as próximas foram atualizadas.' : id ? 'Atendimento atualizado.' : 'Atendimento salvo no dispositivo.');
   }
 
   function initials(name) { return name.split(/\s+/).slice(0,2).map(part => part[0]).join('').toUpperCase(); }
@@ -501,10 +559,24 @@
 
   async function deleteAppointment() {
     const id = $('#appointment-id').value;
-    if (!id || !await confirmAction('Excluir este item?', 'Essa ação remove apenas esta ocorrência da agenda.')) return;
-    state.appointments = state.appointments.filter(item => item.id !== id);
+    const item = state.appointments.find(entry => entry.id === id);
+    if (!item) return;
+    let scope = 'single';
+    if (isRecurringItem(item)) {
+      scope = await chooseSeriesScope({
+        title: 'Excluir atendimento recorrente?',
+        text: 'Escolha se deseja remover somente esta sessão ou esta e todas as próximas. As sessões anteriores serão preservadas.',
+        singleLabel: 'Excluir somente esta',
+        futureLabel: 'Excluir esta e futuras',
+        danger: true
+      });
+      if (scope === 'cancel') return;
+    } else if (!await confirmAction('Excluir este item?', 'Essa ação remove apenas esta ocorrência da agenda.')) return;
+    state.appointments = scope === 'future'
+      ? state.appointments.filter(entry => entry.seriesId !== item.seriesId || entry.date < item.date)
+      : state.appointments.filter(entry => entry.id !== id);
     await saveState();
-    $('#appointment-dialog').close(); renderCalendar(); showToast('Item excluído.');
+    $('#appointment-dialog').close(); renderCalendar(); showToast(scope === 'future' ? 'Esta sessão e as próximas foram excluídas.' : 'Item excluído.');
   }
 
   async function rescheduleAppointment() {
@@ -576,8 +648,8 @@
       const hitArea = event.target.closest('.day-hit-area[data-date]');
       if (hitArea) {
         const rect = hitArea.getBoundingClientRect();
-        const minute = Math.max(0, Math.min((HOURS_END-HOURS_START)*60-60, Math.round((event.clientY-rect.top)/15)*15));
-        const total = HOURS_START*60 + minute;
+        const hourOffset = Math.max(0, Math.min(HOURS_END - HOURS_START - 1, Math.floor((event.clientY - rect.top) / 60)));
+        const total = (HOURS_START + hourOffset) * 60;
         openNewAppointment(hitArea.dataset.date, `${pad(Math.floor(total/60))}:${pad(total%60)}`);
       }
     });
