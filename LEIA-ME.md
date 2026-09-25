@@ -28,6 +28,8 @@ PWA responsiva para organizar atendimentos. Os dados são salvos somente no nave
 - Todo novo atendimento começa em verde, com possibilidade de troca manual.
 - Status clínico e financeiro separados.
 - Resumo financeiro mensal.
+- Resumo mensal agrupado por cliente, com histórico completo de sessões passadas e futuras.
+- Recebimento em lote para marcar vários atendimentos pendentes como pagos em uma única operação.
 - Funcionamento offline após a primeira abertura em um endereço HTTPS.
 - Transições suaves entre telas, abas, calendários e modais, respeitando a preferência de redução de movimento do aparelho.
 
