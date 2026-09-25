@@ -1,5 +1,5 @@
-const CACHE = 'agenda-1-0-v16';
-const FILES = ['./','./index.html','./styles.css?v=16','./app.js?v=16','./manifest.webmanifest','./icon.svg'];
+const CACHE = 'agenda-1-0-v17';
+const FILES = ['./','./index.html','./styles.css?v=17','./app.js?v=17','./manifest.webmanifest','./icon.svg'];
 self.addEventListener('install', event => event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(FILES)).then(() => self.skipWaiting())));
 self.addEventListener('activate', event => event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => key !== CACHE).map(key => caches.delete(key)))).then(() => self.clients.claim())));
 self.addEventListener('fetch', event => {
