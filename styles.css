@@ -90,10 +90,11 @@ main{max-width:1480px;margin:auto}.screen{display:none;animation:fade .2s ease}.
 .payment-bar>.payment-actions{display:grid;grid-template-columns:repeat(3,minmax(92px,1fr));gap:7px}
 .payment-actions button{white-space:nowrap;padding:10px 12px}
 @media(max-width:640px){
-  .payment-bar{left:10px;right:10px;bottom:76px;width:auto;transform:none;flex-direction:column;align-items:stretch;gap:8px}
+  .payment-bar{position:relative;left:auto;right:auto;bottom:auto;width:calc(100% - 20px);margin:-2px 10px 14px;transform:none;z-index:4;flex-direction:column;align-items:stretch;gap:8px;animation:payment-panel-enter .25s var(--ease-out) both}
   .payment-bar>.payment-total{flex-direction:row;align-items:center;justify-content:space-between}
   .payment-bar>.payment-actions{grid-template-columns:repeat(3,minmax(0,1fr))}
   .payment-actions button{padding:9px 5px;font-size:10px}
-  .client-finance-detail{padding-bottom:142px}
+  .client-finance-detail{padding-bottom:75px}
 }
+@keyframes payment-panel-enter{from{opacity:0;transform:translateY(8px) scale(.985)}to{opacity:1;transform:none}}
 
