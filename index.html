@@ -7,7 +7,7 @@
   <meta name="description" content="Agenda de atendimentos privada, offline e salva no seu dispositivo.">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=18">
+  <link rel="stylesheet" href="styles.css?v=19">
   <title>Agenda</title>
 </head>
 <body>
@@ -76,7 +76,7 @@
       <div class="type-toggle"><button data-kind="appointment" type="button" class="active">Atendimento</button><button data-kind="block" type="button">Bloqueio de horário</button></div>
       <input id="appointment-kind" type="hidden" value="appointment">
       <div id="appointment-fields">
-        <label class="field full"><span>Cliente</span><input id="appointment-client" list="client-options" autocomplete="off" placeholder="Nome do cliente" required><datalist id="client-options"></datalist></label>
+        <label class="field full"><span id="appointment-client-label">Cliente</span><input id="appointment-client" list="client-options" autocomplete="off" placeholder="Nome do cliente" required><datalist id="client-options"></datalist></label>
         <div class="form-grid">
           <label class="field"><span>Tipo de atendimento</span><select id="appointment-type"><option>Consulta</option><option>Sessão</option><option>Avaliação</option><option>Retorno</option><option>Outro</option></select></label>
           <label class="field"><span>Modalidade</span><select id="appointment-modality"><option>Presencial</option><option>Online</option></select></label>
@@ -90,7 +90,7 @@
       </div>
       <div id="appointment-extra">
         <div class="form-grid">
-          <label class="field money-field"><span>Valor</span><div><span>R$</span><input id="appointment-value" type="number" min="0" step="0.01" value="0"></div></label>
+          <label id="appointment-value-field" class="field money-field"><span>Valor</span><div><span>R$</span><input id="appointment-value" type="number" min="0" step="0.01" value="0"></div></label>
           <label class="field"><span>Recorrência</span><select id="appointment-recurrence"><option value="none">Única</option><option value="weekly">Semanal</option><option value="biweekly">Quinzenal</option><option value="monthly">Mensal</option></select></label>
         </div>
         <div class="field full color-field"><span>Cor na agenda</span><input id="appointment-color" type="hidden" value="green"><div class="color-picker" data-color-picker="appointment" role="group" aria-label="Cor do atendimento">
@@ -131,7 +131,7 @@
   <dialog id="confirm-dialog" class="modal confirm-modal"><form method="dialog"><div class="confirm-symbol">!</div><h2 id="confirm-title">Confirmar ação</h2><p id="confirm-text"></p><div class="modal-actions centered"><button class="secondary-button" value="cancel">Cancelar</button><button id="confirm-action" class="danger-button" value="confirm">Confirmar</button></div></form></dialog>
   <dialog id="scope-dialog" class="modal confirm-modal scope-modal"><form method="dialog"><div class="confirm-symbol">↗</div><h2 id="scope-title">Aplicar alteração</h2><p id="scope-text"></p><div class="scope-actions"><button id="scope-single" class="secondary-button" value="single">Somente esta</button><button id="scope-future" class="primary-button" value="future">Esta e futuras</button><button class="secondary-button" value="cancel">Cancelar</button></div></form></dialog>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script src="app.js?v=18" defer></script>
+  <script src="app.js?v=19" defer></script>
 </body>
 </html>
 
