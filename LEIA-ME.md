@@ -28,6 +28,9 @@ PWA responsiva para organizar atendimentos. Os dados são salvos somente no nave
 - Todo novo atendimento começa em verde, com possibilidade de troca manual.
 - Status clínico e financeiro separados.
 - Resumo financeiro mensal.
+- Clientes pendentes e parciais aparecem antes dos clientes pagos no Resumo.
+- A lista mensal mostra dez clientes por vez, com carregamento incremental.
+- O tipo Outro funciona como compromisso particular sem custo e não entra nos cálculos financeiros.
 - Resumo mensal agrupado por cliente, com histórico completo de sessões passadas e futuras.
 - Recebimento em lote para marcar vários atendimentos pendentes como pagos em uma única operação.
 - Alteração financeira em lote para A receber, Pago ou Não pago, inclusive em sessões já pagas.
