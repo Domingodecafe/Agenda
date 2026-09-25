@@ -7,7 +7,7 @@
   <meta name="description" content="Agenda de atendimentos privada, offline e salva no seu dispositivo.">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=15">
+  <link rel="stylesheet" href="styles.css?v=16">
   <title>Agenda</title>
 </head>
 <body>
@@ -46,9 +46,18 @@
       </section>
 
       <section id="summary-screen" class="screen" aria-label="Resumo financeiro">
-        <div class="section-heading"><div><span class="eyebrow">FINANCEIRO</span><h2>Resumo mensal</h2><p>Uma visão simples do que entrou e do que ainda está pendente.</p></div><label class="month-picker"><span>Mês</span><input id="summary-month" type="month"></label></div>
-        <div id="finance-cards" class="finance-grid"></div>
-        <div class="surface summary-panel"><div class="panel-heading"><div><span class="eyebrow">MOVIMENTOS</span><h3 id="summary-list-title">Atendimentos do mês</h3></div></div><div id="summary-list" class="summary-list"></div></div>
+        <div id="summary-overview">
+          <div class="section-heading"><div><span class="eyebrow">FINANCEIRO</span><h2>Resumo mensal</h2><p>Uma visão simples do que entrou e do que ainda está pendente.</p></div><label class="month-picker"><span>Mês</span><input id="summary-month" type="month"></label></div>
+          <div id="finance-cards" class="finance-grid"></div>
+          <div class="surface summary-panel"><div class="panel-heading"><div><span class="eyebrow">CLIENTES</span><h3 id="summary-list-title">Movimentos do mês</h3></div><span class="panel-hint">Toque em um cliente para ver o histórico</span></div><div id="summary-list" class="summary-list"></div></div>
+        </div>
+        <div id="client-finance-detail" class="client-finance-detail hidden">
+          <div class="detail-heading"><button id="summary-back" class="secondary-button" type="button">← Voltar</button><div><span class="eyebrow">HISTÓRICO FINANCEIRO</span><h2 id="detail-client-name"></h2><p id="detail-client-subtitle"></p></div></div>
+          <div class="detail-tools surface"><button id="select-past-due" class="secondary-button" type="button">Selecionar pendentes passados</button><button id="clear-payment-selection" class="text-action" type="button">Limpar seleção</button></div>
+          <section class="appointment-section surface"><div class="appointment-section-heading"><div><span class="eyebrow">HISTÓRICO</span><h3>Atendimentos passados</h3></div><span id="past-count" class="section-count"></span></div><div id="past-appointments" class="finance-appointment-list"></div></section>
+          <section class="appointment-section surface"><div class="appointment-section-heading"><div><span class="eyebrow">AGENDA</span><h3>Próximos atendimentos</h3></div><span id="future-count" class="section-count"></span></div><div id="future-appointments" class="finance-appointment-list"></div></section>
+          <div id="payment-bar" class="payment-bar hidden"><div><span id="payment-selection-count">0 selecionados</span><strong id="payment-selection-total">R$ 0,00</strong></div><button id="receive-selected" class="primary-button" type="button">Receber selecionados</button></div>
+        </div>
       </section>
     </main>
 
@@ -123,7 +132,7 @@
   <dialog id="confirm-dialog" class="modal confirm-modal"><form method="dialog"><div class="confirm-symbol">!</div><h2 id="confirm-title">Confirmar ação</h2><p id="confirm-text"></p><div class="modal-actions centered"><button class="secondary-button" value="cancel">Cancelar</button><button id="confirm-action" class="danger-button" value="confirm">Confirmar</button></div></form></dialog>
   <dialog id="scope-dialog" class="modal confirm-modal scope-modal"><form method="dialog"><div class="confirm-symbol">↗</div><h2 id="scope-title">Aplicar alteração</h2><p id="scope-text"></p><div class="scope-actions"><button id="scope-single" class="secondary-button" value="single">Somente esta</button><button id="scope-future" class="primary-button" value="future">Esta e futuras</button><button class="secondary-button" value="cancel">Cancelar</button></div></form></dialog>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script src="app.js?v=15" defer></script>
+  <script src="app.js?v=16" defer></script>
 </body>
 </html>
 
