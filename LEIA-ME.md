@@ -19,6 +19,9 @@ PWA responsiva para organizar atendimentos. Os dados são salvos somente no nave
 - Seletores de horário próprios e legíveis no celular, em intervalos de 15 minutos.
 - Recorrência semanal, quinzenal e mensal por 12 meses.
 - Recorrência editável em atendimentos existentes, com recálculo das próximas sessões.
+- Edição com escolha entre somente a ocorrência selecionada ou esta e todas as futuras.
+- Exclusão separada para uma ocorrência ou para esta e todas as futuras da sequência.
+- Novos horários escolhidos pela grade começam na hora cheia do bloco; ajustes manuais continuam em intervalos de 15 minutos.
 - Cadastro simples de clientes e valor padrão.
 - Campo de observações no cadastro de clientes.
 - Cores por cliente e por atendimento: verde, amarelo, vermelho, roxo e azul.
