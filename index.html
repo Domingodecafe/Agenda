@@ -7,7 +7,7 @@
   <meta name="description" content="Agenda de atendimentos privada, offline e salva no seu dispositivo.">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=16">
+  <link rel="stylesheet" href="styles.css?v=17">
   <title>Agenda</title>
 </head>
 <body>
@@ -56,7 +56,7 @@
           <div class="detail-tools surface"><button id="select-past-due" class="secondary-button" type="button">Selecionar pendentes passados</button><button id="clear-payment-selection" class="text-action" type="button">Limpar seleção</button></div>
           <section class="appointment-section surface"><div class="appointment-section-heading"><div><span class="eyebrow">HISTÓRICO</span><h3>Atendimentos passados</h3></div><span id="past-count" class="section-count"></span></div><div id="past-appointments" class="finance-appointment-list"></div></section>
           <section class="appointment-section surface"><div class="appointment-section-heading"><div><span class="eyebrow">AGENDA</span><h3>Próximos atendimentos</h3></div><span id="future-count" class="section-count"></span></div><div id="future-appointments" class="finance-appointment-list"></div></section>
-          <div id="payment-bar" class="payment-bar hidden"><div><span id="payment-selection-count">0 selecionados</span><strong id="payment-selection-total">R$ 0,00</strong></div><button id="receive-selected" class="primary-button" type="button">Receber selecionados</button></div>
+          <div id="payment-bar" class="payment-bar hidden"><div class="payment-total"><span id="payment-selection-count">0 selecionados</span><strong id="payment-selection-total">R$ 0,00</strong></div><div class="payment-actions" role="group" aria-label="Alterar status financeiro"><button class="secondary-button" data-financial-action="A receber" type="button">A receber</button><button class="primary-button" data-financial-action="Pago" type="button">Pago</button><button class="danger-button" data-financial-action="Não pago" type="button">Não pago</button></div></div>
         </div>
       </section>
     </main>
@@ -100,13 +100,12 @@
           <button data-color="purple" type="button" aria-label="Roxo" aria-pressed="false"><i></i><b>Roxo</b></button>
           <button data-color="blue" type="button" aria-label="Azul" aria-pressed="false"><i></i><b>Azul</b></button>
         </div>
-        <div id="edit-status-fields" class="form-grid hidden">
-          <label class="field"><span>Status do atendimento</span><select id="appointment-status"><option>Agendado</option><option>Realizado</option><option>Remarcado</option><option>Cancelado</option><option>Faltou</option></select></label>
-          <label class="field"><span>Status financeiro</span><select id="financial-status"><option>A receber</option><option>Pago</option><option>Não pago</option></select></label>
+        <div id="edit-financial-field" class="hidden">
+          <label class="field full"><span>Status financeiro</span><select id="financial-status"><option>A receber</option><option>Pago</option><option>Não pago</option></select></label>
         </div>
       </div>
       <p id="form-error" class="form-error" role="alert"></p>
-      <div class="modal-actions"><div><button id="delete-appointment" class="danger-button hidden" type="button">Excluir</button><button id="reschedule-appointment" class="secondary-button hidden" type="button">Remarcar</button></div><div><button class="secondary-button" type="button" data-close="appointment-dialog">Cancelar</button><button class="primary-button" type="submit">Salvar</button></div></div>
+      <div class="modal-actions"><div><button id="delete-appointment" class="danger-button hidden" type="button">Excluir</button></div><div><button class="secondary-button" type="button" data-close="appointment-dialog">Cancelar</button><button class="primary-button" type="submit">Salvar</button></div></div>
     </form>
   </dialog>
 
@@ -132,7 +131,7 @@
   <dialog id="confirm-dialog" class="modal confirm-modal"><form method="dialog"><div class="confirm-symbol">!</div><h2 id="confirm-title">Confirmar ação</h2><p id="confirm-text"></p><div class="modal-actions centered"><button class="secondary-button" value="cancel">Cancelar</button><button id="confirm-action" class="danger-button" value="confirm">Confirmar</button></div></form></dialog>
   <dialog id="scope-dialog" class="modal confirm-modal scope-modal"><form method="dialog"><div class="confirm-symbol">↗</div><h2 id="scope-title">Aplicar alteração</h2><p id="scope-text"></p><div class="scope-actions"><button id="scope-single" class="secondary-button" value="single">Somente esta</button><button id="scope-future" class="primary-button" value="future">Esta e futuras</button><button class="secondary-button" value="cancel">Cancelar</button></div></form></dialog>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script src="app.js?v=16" defer></script>
+  <script src="app.js?v=17" defer></script>
 </body>
 </html>
 
