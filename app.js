@@ -20,6 +20,7 @@
   let suppressCalendarClickUntil = 0;
   let summaryClient = null;
   let summaryVisibleCount = 10;
+  let appointmentDateTap = null;
   const paymentSelection = new Set();
 
   const uid = () => crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -653,10 +654,9 @@
     const sum = filter => items.filter(filter).reduce((total,item) => total + Number(item.value || 0), 0);
     const received = sum(item => item.financialStatus === 'Pago');
     const receivable = sum(item => item.financialStatus === 'A receber');
-    const unpaid = sum(item => item.financialStatus === 'Não pago');
     const predicted = received + receivable;
     const cards = [
-      ['Recebido',received,'var(--accent-strong)'],['A receber',receivable,'var(--amber)'],['Não pago',unpaid,'var(--red)'],['Total previsto',predicted,'var(--lilac)']
+      ['Recebido',received,'var(--accent-strong)'],['A receber',receivable,'var(--amber)'],['Total previsto',predicted,'var(--lilac)']
     ];
     $('#finance-cards').innerHTML = cards.map(([label,value,color]) => `<article class="finance-card" style="--card-color:${color}"><span>${label}</span><strong>${formatMoney(value)}</strong><i></i></article>`).join('');
     const monthDate = parseDate(`${key}-01`);
@@ -691,12 +691,12 @@
     const checked = paymentSelection.has(item.id);
     const date = parseDate(item.date).toLocaleDateString('pt-BR', { weekday:'short', day:'2-digit', month:'short', year:'numeric' });
     const statusClass = item.financialStatus === 'Pago' ? 'paid' : item.financialStatus === 'Não pago' ? 'unpaid' : '';
-    return `<label class="finance-appointment-row selectable">
+    return `<div class="finance-appointment-row selectable">
       <span class="payment-check"><input type="checkbox" data-payment-id="${item.id}" ${checked ? 'checked' : ''} aria-label="Selecionar atendimento de ${escapeHTML(date)}"></span>
-      <span class="appointment-date"><strong>${escapeHTML(date)}</strong><small>${escapeHTML(item.start)}–${escapeHTML(item.end)}</small></span>
+      <button class="appointment-date appointment-date-button" data-appointment-date-id="${item.id}" type="button" aria-label="Selecionar ${escapeHTML(date)}; toque duas vezes para abrir o atendimento na Agenda"><strong>${escapeHTML(date)}</strong><small>${escapeHTML(item.start)}–${escapeHTML(item.end)}</small></button>
       <span class="status-chip ${statusClass}">${escapeHTML(item.financialStatus || 'A receber')}</span>
       <strong class="appointment-value">${formatMoney(item.value)}</strong>
-    </label>`;
+    </div>`;
   }
 
   function renderClientFinanceDetail() {
@@ -737,12 +737,40 @@
     $('#clear-payment-selection').classList.toggle('hidden', !selected.length);
   }
 
-  function selectPastDueAppointments() {
-    const now = new Date();
-    selectedClientAppointments().forEach(item => {
-      if (appointmentEnd(item) < now && (item.financialStatus === 'A receber' || item.financialStatus === 'Não pago')) paymentSelection.add(item.id);
-    });
+  function togglePaymentSelection(id) {
+    if (paymentSelection.has(id)) paymentSelection.delete(id);
+    else paymentSelection.add(id);
     renderClientFinanceDetail();
+  }
+
+  function openAppointmentFromSummary(id) {
+    const item = state.appointments.find(entry => entry.id === id);
+    if (!item) return;
+    anchorDate = parseDate(item.date);
+    setView('day');
+    setTab('agenda');
+    openEditAppointment(id);
+  }
+
+  function handleAppointmentDateTap(id) {
+    const now = Date.now();
+    if (appointmentDateTap?.id === id && now - appointmentDateTap.startedAt <= 360) {
+      clearTimeout(appointmentDateTap.timer);
+      appointmentDateTap = null;
+      openAppointmentFromSummary(id);
+      return;
+    }
+    if (appointmentDateTap) {
+      clearTimeout(appointmentDateTap.timer);
+      togglePaymentSelection(appointmentDateTap.id);
+    }
+    const pendingTap = { id, startedAt: now, timer: null };
+    pendingTap.timer = setTimeout(() => {
+      if (appointmentDateTap !== pendingTap) return;
+      appointmentDateTap = null;
+      togglePaymentSelection(id);
+    }, 360);
+    appointmentDateTap = pendingTap;
   }
 
   async function applyFinancialStatus(status) {
@@ -820,7 +848,6 @@
       if (row) openClientFinanceDetail(row.dataset.summaryClient);
     });
     $('#summary-back').addEventListener('click', renderSummary);
-    $('#select-past-due').addEventListener('click', selectPastDueAppointments);
     $('#clear-payment-selection').addEventListener('click', () => { paymentSelection.clear(); renderClientFinanceDetail(); });
     $$('[data-financial-action]').forEach(button => button.addEventListener('click', () => applyFinancialStatus(button.dataset.financialAction)));
     $('#client-finance-detail').addEventListener('change', event => {
@@ -829,6 +856,12 @@
       if (checkbox.checked) paymentSelection.add(checkbox.dataset.paymentId);
       else paymentSelection.delete(checkbox.dataset.paymentId);
       updatePaymentBar();
+    });
+    $('#client-finance-detail').addEventListener('click', event => {
+      const dateButton = event.target.closest('[data-appointment-date-id]');
+      if (!dateButton) return;
+      event.preventDefault();
+      handleAppointmentDateTap(dateButton.dataset.appointmentDateId);
     });
     window.addEventListener('resize', () => { if (state.settings.view === 'week') positionMobileWeek(); });
     $$('[data-close]').forEach(button => button.addEventListener('click', () => document.getElementById(button.dataset.close).close()));
