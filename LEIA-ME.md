@@ -35,6 +35,8 @@ PWA responsiva para organizar atendimentos. Os dados são salvos somente no nave
 - Recebimento em lote para marcar vários atendimentos pendentes como pagos em uma única operação.
 - Alteração financeira em lote para A receber, Pago ou Não pago, inclusive em sessões já pagas.
 - No celular, ações financeiras aparecem entre os atendimentos passados e futuros sem cobrir a navegação.
+- Um toque na data seleciona a sessão; dois toques abrem o atendimento na visão Dia da Agenda.
+- O Resumo apresenta os cartões Recebido, A receber e Total previsto.
 - Interface simplificada sem status clínico e sem fluxo separado de remarcação.
 - Funcionamento offline após a primeira abertura em um endereço HTTPS.
 - Transições suaves entre telas, abas, calendários e modais, respeitando a preferência de redução de movimento do aparelho.
