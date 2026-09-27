@@ -24,6 +24,8 @@
   const paymentSelection = new Set();
   const pendingSaves = new Set();
   let updateApplying = false;
+  let appointmentPaymentDraft = null;
+  let appointmentOriginalFinancialStatus = 'A receber';
 
   const uid = () => crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
   const pad = value => String(value).padStart(2, '0');
@@ -36,6 +38,10 @@
   const formatMoney = value => Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   const escapeHTML = value => String(value ?? '').replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
   const hashColor = text => [...String(text)].reduce((sum, char) => sum + char.charCodeAt(0), 0) % 3;
+  const cloneValue = value => value == null ? null : structuredClone(value);
+  const samePayment = (a, b) => JSON.stringify(a || null) === JSON.stringify(b || null);
+  const paymentMethodLabel = payment => payment ? `${payment.method}${payment.method === 'Outro' && payment.methodDetail ? ` · ${payment.methodDetail}` : ''}` : '';
+  const formatShortDate = value => value ? parseDate(value).toLocaleDateString('pt-BR') : 'data não informada';
 
   function openDatabase() {
     return new Promise((resolve, reject) => {
@@ -97,6 +103,41 @@
     toast.classList.add('show');
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => toast.classList.remove('show'), 2400);
+  }
+
+  function paymentSnapshot(payment) {
+    if (!payment) return null;
+    return { date: payment.date || '', method: payment.method || '', methodDetail: payment.methodDetail || '' };
+  }
+
+  function recordPaymentChange(item, nextStatus, nextPayment, reason = '') {
+    const previousStatus = item.financialStatus || 'A receber';
+    const previousPayment = paymentSnapshot(item.payment);
+    const currentPayment = nextStatus === 'Pago' ? paymentSnapshot(nextPayment) : null;
+    if (previousStatus !== nextStatus || !samePayment(previousPayment, currentPayment)) {
+      let action = 'Status alterado';
+      if (nextStatus === 'Pago' && previousStatus !== 'Pago') action = 'Pagamento registrado';
+      else if (nextStatus === 'Pago') action = 'Pagamento corrigido';
+      else if (previousStatus === 'Pago') action = 'Pagamento revertido';
+      item.paymentHistory ||= [];
+      item.paymentHistory.push({ id: uid(), action, changedAt: new Date().toISOString(), previousStatus, nextStatus, previousPayment, currentPayment, reason });
+    }
+    item.financialStatus = nextStatus;
+    item.payment = currentPayment;
+  }
+
+  function updateActivePaymentCard() {
+    const isPaid = $('#financial-status').value === 'Pago';
+    const item = state.appointments.find(entry => entry.id === $('#appointment-id').value);
+    const payment = appointmentPaymentDraft || paymentSnapshot(item?.payment);
+    const hasHistory = Boolean(item?.paymentHistory?.length);
+    $('#active-payment-card').classList.toggle('hidden', !isPaid && !hasHistory);
+    $('#edit-payment').classList.toggle('hidden', !isPaid);
+    if (isPaid) $('#active-payment-summary').textContent = payment
+      ? `${formatShortDate(payment.date)} · ${paymentMethodLabel(payment)}`
+      : 'Pagamento sem detalhes';
+    else $('#active-payment-summary').textContent = `${$('#financial-status').value} · pagamento anterior preservado`;
+    $('#view-payment-history').classList.toggle('hidden', !hasHistory);
   }
 
   function setTab(tab) {
@@ -344,6 +385,10 @@
     $('#delete-appointment').classList.add('hidden');
     $('#appointment-recurrence').disabled = false;
     $('#form-error').textContent = '';
+    appointmentPaymentDraft = null;
+    appointmentOriginalFinancialStatus = 'A receber';
+    $('#financial-status').dataset.previous = 'A receber';
+    $('#active-payment-card').classList.add('hidden');
     setAppointmentKind('appointment');
     populateClientOptions();
   }
@@ -399,6 +444,9 @@
     $('#appointment-value').value = item.value || 0;
     setSelectedColor('appointment', item.color || eventColor(item));
     $('#financial-status').value = item.financialStatus || 'A receber';
+    appointmentOriginalFinancialStatus = item.financialStatus || 'A receber';
+    $('#financial-status').dataset.previous = appointmentOriginalFinancialStatus;
+    appointmentPaymentDraft = paymentSnapshot(item.payment);
     $('#block-label').value = item.label || '';
     $('#appointment-title').textContent = item.kind === 'block' ? 'Editar bloqueio' : 'Editar atendimento';
     $('#appointment-kicker').textContent = 'DETALHES';
@@ -408,6 +456,7 @@
     $('#appointment-recurrence').disabled = item.kind !== 'appointment';
     setAppointmentKind(item.kind);
     updateAppointmentTypeFinanceState();
+    updateActivePaymentCard();
     $('#appointment-dialog').showModal();
   }
 
@@ -455,6 +504,79 @@
     });
   }
 
+  function collectPaymentStep(item, draft, index, total) {
+    const dialog = $('#payment-dialog');
+    const form = $('#payment-form');
+    const today = isoDate(new Date());
+    $('#payment-step').textContent = total > 1 ? `PAGAMENTO ${index + 1} DE ${total}` : 'PAGAMENTO';
+    $('#payment-client-name').textContent = appointmentDisplayName(item);
+    $('#payment-session-details').textContent = `${formatShortDate(item.date)} · ${item.start}–${item.end}`;
+    $('#payment-session-value').textContent = formatMoney(item.value);
+    $('#payment-date').max = today;
+    $('#payment-date').value = draft?.date || today;
+    $('#payment-method').value = draft?.method || 'PIX';
+    $('#payment-method-detail').value = draft?.methodDetail || '';
+    $('#payment-back').classList.toggle('hidden', index === 0);
+    $('#payment-error').textContent = '';
+    const syncOther = () => {
+      const isOther = $('#payment-method').value === 'Outro';
+      $('#payment-method-detail-wrap').classList.toggle('hidden', !isOther);
+      $('#payment-method-detail').required = isOther;
+    };
+    syncOther();
+    return new Promise(resolve => {
+      let completed = false;
+      let cancelHandler;
+      const finish = result => {
+        if (completed) return;
+        completed = true;
+        dialog.removeEventListener('cancel', cancelHandler);
+        if (dialog.open) dialog.close();
+        resolve(result);
+      };
+      $('#payment-method').onchange = syncOther;
+      $('#payment-close').onclick = () => finish({ action: 'cancel' });
+      $('#payment-cancel').onclick = () => finish({ action: 'cancel' });
+      $('#payment-back').onclick = () => finish({ action: 'back', payment: { date: $('#payment-date').value, method: $('#payment-method').value, methodDetail: $('#payment-method').value === 'Outro' ? $('#payment-method-detail').value.trim() : '' } });
+      form.onsubmit = event => {
+        event.preventDefault();
+        const date = $('#payment-date').value;
+        const method = $('#payment-method').value;
+        const methodDetail = $('#payment-method-detail').value.trim();
+        if (!date || date > today) { $('#payment-error').textContent = 'Informe uma data válida, sem usar uma data futura.'; return; }
+        if (!method || (method === 'Outro' && !methodDetail)) { $('#payment-error').textContent = 'Descreva a forma de pagamento utilizada.'; return; }
+        finish({ action: 'next', payment: { date, method, methodDetail: method === 'Outro' ? methodDetail : '' } });
+      };
+      cancelHandler = event => { event.preventDefault(); finish({ action: 'cancel' }); };
+      dialog.addEventListener('cancel', cancelHandler);
+      dialog.showModal();
+    });
+  }
+
+  async function collectPaymentDetails(items) {
+    const drafts = items.map(item => paymentSnapshot(item.payment) || { date: isoDate(new Date()), method: 'PIX', methodDetail: '' });
+    let index = 0;
+    while (index < items.length) {
+      const result = await collectPaymentStep(items[index], drafts[index], index, items.length);
+      if (result.action === 'cancel') return null;
+      if (result.action === 'back') { drafts[index] = result.payment; index = Math.max(0, index - 1); continue; }
+      drafts[index] = result.payment;
+      index += 1;
+    }
+    return drafts;
+  }
+
+  function showPaymentHistory(item) {
+    const entries = item?.paymentHistory || [];
+    $('#payment-history-list').innerHTML = entries.length ? [...entries].reverse().map(entry => {
+      const payment = entry.currentPayment || entry.previousPayment;
+      const details = payment ? `${formatShortDate(payment.date)} · ${escapeHTML(paymentMethodLabel(payment))}` : `${escapeHTML(entry.previousStatus || '')} → ${escapeHTML(entry.nextStatus || '')}`;
+      const changed = new Date(entry.changedAt).toLocaleString('pt-BR');
+      return `<article class="payment-history-item"><span>${escapeHTML(entry.action)}</span><strong>${details}</strong><small>${escapeHTML(changed)}</small></article>`;
+    }).join('') : '<p class="section-empty">Este pagamento ainda não possui alterações registradas.</p>';
+    $('#payment-history-dialog').showModal();
+  }
+
   async function submitAppointment(event) {
     event.preventDefault();
     const id = $('#appointment-id').value;
@@ -475,6 +597,15 @@
     const previousFrequency = existingItem?.recurrence || 'none';
     const frequency = kind === 'appointment' ? $('#appointment-recurrence').value : 'none';
     const recurrenceChanged = Boolean(existingItem && previousFrequency !== frequency);
+    const desiredFinancialStatus = isFreeAppointment ? (existingItem?.financialStatus || 'A receber') : $('#financial-status').value;
+    const paymentChanged = Boolean(existingItem && kind === 'appointment' && !isFreeAppointment && (
+      desiredFinancialStatus !== appointmentOriginalFinancialStatus ||
+      (desiredFinancialStatus === 'Pago' && !samePayment(paymentSnapshot(existingItem.payment), appointmentPaymentDraft))
+    ));
+    if (recurrenceChanged && paymentChanged) {
+      $('#form-error').textContent = 'Salve primeiro a alteração do pagamento e depois ajuste a recorrência.';
+      return;
+    }
     let editScope = 'single';
     if (existingItem && recurrenceChanged) {
       editScope = await chooseSeriesScope({
@@ -483,7 +614,7 @@
         futureLabel: 'Aplicar a esta e futuras',
         allowSingle: false
       });
-    } else if (isRecurringItem(existingItem)) {
+    } else if (isRecurringItem(existingItem) && !paymentChanged) {
       editScope = await chooseSeriesScope({
         title: 'Aplicar alterações',
         text: 'Deseja alterar somente esta sessão ou esta e todas as próximas da sequência?',
@@ -507,13 +638,13 @@
       label: $('#block-label').value.trim(),
       clientId: client?.id || null, clientName: client?.name || '',
       type: appointmentType, modality: $('#appointment-modality').value,
-      value: isFreeAppointment ? 0 : Number($('#appointment-value').value || 0), color: $('#appointment-color').value,
-      financialStatus: isFreeAppointment ? (existingItem?.financialStatus || 'A receber') : $('#financial-status').value
+      value: isFreeAppointment ? 0 : Number($('#appointment-value').value || 0), color: $('#appointment-color').value
     };
 
     if (existingItem) {
       if (editScope === 'single') {
         Object.assign(existingItem, formData, { recurrence: previousFrequency, seriesId: existingItem.seriesId || null });
+        if (kind === 'appointment' && !isFreeAppointment) recordPaymentChange(existingItem, desiredFinancialStatus, appointmentPaymentDraft);
       } else {
         const originalDate = existingItem.date;
         const affected = seriesOccurrencesFrom(existingItem);
@@ -790,6 +921,11 @@
     const selected = state.appointments.filter(item => paymentSelection.has(item.id));
     if (!selected.length) return;
     const total = selected.reduce((sum,item) => sum + Number(item.value || 0), 0);
+    let payments = null;
+    if (status === 'Pago') {
+      payments = await collectPaymentDetails(selected);
+      if (!payments) return;
+    }
     const descriptions = {
       'Pago': ['Confirmar recebimento?', 'marcado como pago', 'marcados como pagos', 'Confirmar pagamento'],
       'A receber': ['Alterar para A receber?', 'marcado como A receber', 'marcados como A receber', 'Confirmar alteração'],
@@ -798,7 +934,7 @@
     const [title, singularAction, pluralAction, buttonText] = descriptions[status] || descriptions['A receber'];
     const confirmed = await confirmAction(title, `${selected.length} atendimento${selected.length === 1 ? '' : 's'} ${selected.length === 1 ? 'será' : 'serão'} ${selected.length === 1 ? singularAction : pluralAction}, totalizando ${formatMoney(total)}.`, buttonText, status === 'Não pago' ? 'danger' : 'primary');
     if (!confirmed) return;
-    selected.forEach(item => { item.financialStatus = status; });
+    selected.forEach((item, index) => recordPaymentChange(item, status, status === 'Pago' ? payments[index] : null, 'Alteração pelo histórico financeiro'));
     await saveState();
     const currentClient = { ...summaryClient };
     paymentSelection.clear();
@@ -850,6 +986,32 @@
     $$('.type-toggle button').forEach(button => button.addEventListener('click', () => setAppointmentKind(button.dataset.kind)));
     $$('[data-color-picker] button').forEach(button => button.addEventListener('click', () => setSelectedColor(button.closest('[data-color-picker]').dataset.colorPicker, button.dataset.color)));
     $('#appointment-form').addEventListener('submit', submitAppointment);
+    $('#financial-status').addEventListener('change', async event => {
+      const select = event.target;
+      const previous = select.dataset.previous || appointmentOriginalFinancialStatus;
+      if (select.value === 'Pago' && previous !== 'Pago') {
+        const item = state.appointments.find(entry => entry.id === $('#appointment-id').value);
+        const payments = item ? await collectPaymentDetails([{ ...item, payment: appointmentPaymentDraft }]) : null;
+        if (!payments) { select.value = previous; updateActivePaymentCard(); return; }
+        appointmentPaymentDraft = payments[0];
+      } else if (select.value !== 'Pago') {
+        appointmentPaymentDraft = null;
+      }
+      select.dataset.previous = select.value;
+      updateActivePaymentCard();
+    });
+    $('#edit-payment').addEventListener('click', async () => {
+      const item = state.appointments.find(entry => entry.id === $('#appointment-id').value);
+      if (!item) return;
+      const payments = await collectPaymentDetails([{ ...item, payment: appointmentPaymentDraft }]);
+      if (!payments) return;
+      appointmentPaymentDraft = payments[0];
+      updateActivePaymentCard();
+    });
+    $('#view-payment-history').addEventListener('click', () => {
+      const item = state.appointments.find(entry => entry.id === $('#appointment-id').value);
+      if (item) showPaymentHistory(item);
+    });
     $('#appointment-type').addEventListener('change', () => updateAppointmentTypeFinanceState({ restorePaidValue: true }));
     $('#appointment-client').addEventListener('input', applyClientDefaultsToAppointment);
     $('#appointment-client').addEventListener('change', applyClientDefaultsToAppointment);
