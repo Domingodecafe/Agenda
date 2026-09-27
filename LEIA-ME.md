@@ -39,8 +39,11 @@ PWA responsiva para organizar atendimentos. Os dados são salvos somente no nave
 - O Resumo apresenta Recebido, Pendente (A receber + Não pago) e Total previsto, pelo mês dos atendimentos.
 - Cada cliente mostra sessões pagas, valor pendente e total mensal.
 - Os cabeçalhos da semana abrem a visão Dia, preservando a posição vertical.
-- A versão v21 aparece junto à marca; novas versões oferecem o botão Atualizar após baixar, sem descartar formulários abertos.
-- Na passagem da v20 para v21, feche todas as janelas da Agenda e reabra após o download. Não limpe os dados do navegador.
+- A versão v22 aparece junto à marca; novas versões oferecem o botão Atualizar após baixar, sem descartar formulários abertos.
+- Pagamentos registram data, forma (PIX, Dinheiro ou Outro) e descrição opcional.
+- Pagamentos em lote são preenchidos sessão por sessão e gravados juntos após confirmação.
+- Correções e reversões financeiras preservam um histórico auditável dentro da edição da sessão.
+- Se uma versão antiga não exibir o aviso de atualização, feche todas as janelas da Agenda e reabra conectada à internet. Não limpe os dados do navegador.
 - Interface simplificada sem status clínico e sem fluxo separado de remarcação.
 - Funcionamento offline após a primeira abertura em um endereço HTTPS.
 - Transições suaves entre telas, abas, calendários e modais, respeitando a preferência de redução de movimento do aparelho.
