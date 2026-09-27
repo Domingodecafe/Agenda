@@ -7,13 +7,13 @@
   <meta name="description" content="Agenda de atendimentos privada, offline e salva no seu dispositivo.">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=20">
+  <link rel="stylesheet" href="styles.css?v=21">
   <title>Agenda</title>
 </head>
 <body>
   <div id="app" class="app-shell">
     <header class="topbar">
-      <div class="brand"><span class="brand-mark">A</span><h1>Agenda</h1></div>
+      <div class="brand"><span class="brand-mark">A</span><h1>Agenda</h1><span class="app-version" aria-label="Versão em uso 21">v21</span></div>
       <div class="header-actions">
         <button id="install-button" class="icon-button install-button hidden" type="button" title="Instalar aplicativo" aria-label="Instalar aplicativo">⇩</button>
         <button id="today-header" class="text-button" type="button">Hoje</button>
@@ -21,6 +21,7 @@
       </div>
     </header>
 
+    <aside id="update-notice" class="update-notice hidden" role="status"><span id="update-message">Atualização disponível</span><button id="apply-update" class="secondary-button" type="button">Atualizar</button></aside>
     <main>
       <section id="agenda-screen" class="screen active" aria-label="Agenda">
         <div class="toolbar surface">
@@ -47,7 +48,7 @@
 
       <section id="summary-screen" class="screen" aria-label="Resumo financeiro">
         <div id="summary-overview">
-          <div class="section-heading"><div><span class="eyebrow">FINANCEIRO</span><h2>Resumo mensal</h2><p>Uma visão simples do que entrou e do que ainda está pendente.</p></div><label class="month-picker"><span>Mês</span><input id="summary-month" type="month"></label></div>
+          <div class="section-heading"><div><span class="eyebrow">FINANCEIRO</span><h2>Resumo mensal</h2><p>Valores pelo mês dos atendimentos, não pela data do pagamento.</p></div><label class="month-picker"><span>Mês</span><input id="summary-month" type="month"></label></div>
           <div id="finance-cards" class="finance-grid"></div>
           <div class="surface summary-panel"><div class="panel-heading"><div><span class="eyebrow">CLIENTES</span><h3 id="summary-list-title">Movimentos do mês</h3></div><span class="panel-hint">Toque em um cliente para ver o histórico</span></div><div id="summary-list" class="summary-list"></div></div>
         </div>
@@ -130,7 +131,6 @@
   <dialog id="confirm-dialog" class="modal confirm-modal"><form method="dialog"><div class="confirm-symbol">!</div><h2 id="confirm-title">Confirmar ação</h2><p id="confirm-text"></p><div class="modal-actions centered"><button class="secondary-button" value="cancel">Cancelar</button><button id="confirm-action" class="danger-button" value="confirm">Confirmar</button></div></form></dialog>
   <dialog id="scope-dialog" class="modal confirm-modal scope-modal"><form method="dialog"><div class="confirm-symbol">↗</div><h2 id="scope-title">Aplicar alteração</h2><p id="scope-text"></p><div class="scope-actions"><button id="scope-single" class="secondary-button" value="single">Somente esta</button><button id="scope-future" class="primary-button" value="future">Esta e futuras</button><button class="secondary-button" value="cancel">Cancelar</button></div></form></dialog>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script src="app.js?v=20" defer></script>
+  <script src="app.js?v=21" defer></script>
 </body>
 </html>
-
