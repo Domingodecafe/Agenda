@@ -104,6 +104,19 @@ main{max-width:1480px;margin:auto}.screen{display:none;animation:fade .2s ease}.
 @media(max-width:640px){.summary-more-wrap{padding:12px 14px 14px}.summary-more-button{width:100%;justify-content:center;min-height:38px}}
 
 /* Summary refinements and direct appointment navigation */
+.app-version{font-size:11px;color:var(--muted);align-self:center}
+.update-notice{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 auto 16px;padding:12px 16px;max-width:1480px;border:1px solid var(--line2);border-radius:12px;background:var(--surface2);font-size:13px}
+.week-day-button{width:100%;padding:0;border:0;border-bottom:1px solid var(--line);color:var(--text);font:inherit;cursor:pointer}
+.week-day-button:focus-visible{outline:2px solid var(--accent);outline-offset:-3px}
+.finance-description{display:block;color:var(--muted);font-size:12px;margin-top:9px;line-height:1.4}
+.summary-amounts{display:flex;flex-direction:column;gap:6px}.summary-amounts strong{color:var(--text)}.summary-amounts small{font-size:12px}.summary-client-name small{font-size:12px}
+@media(max-width:640px){
+  .update-notice{margin:0 10px 14px}.brand{gap:7px}
+  .summary-client-row{grid-template-columns:minmax(0,1fr) auto;gap:10px;padding:16px}
+  .summary-client-row .summary-client-name{grid-column:1;grid-row:1}.summary-client-row .status-chip{grid-column:2;grid-row:1}
+  .summary-client-row .summary-amounts{grid-column:1/-1;grid-row:2;flex-direction:row;justify-content:space-between;flex-wrap:wrap;gap:8px}
+  .summary-client-row .row-arrow{display:none}.summary-client-name strong{font-size:14px}.summary-amounts strong,.summary-amounts small{font-size:12px}
+}
 .finance-grid{grid-template-columns:repeat(3,1fr)}
 .appointment-date-button{width:100%;border:0;background:transparent;color:var(--text);padding:7px 8px;margin:-7px -8px;text-align:left;border-radius:8px;cursor:pointer;touch-action:manipulation}
 .appointment-date-button:hover{background:rgba(255,255,255,.035)}
@@ -114,4 +127,3 @@ main{max-width:1480px;margin:auto}.screen{display:none;animation:fade .2s ease}.
 @media(max-width:900px){.finance-grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:640px){.payment-bar>.payment-total{width:100%;flex-direction:row;align-items:center;justify-content:space-between}}
 @media(max-width:400px){.finance-grid{grid-template-columns:1fr}}
-
