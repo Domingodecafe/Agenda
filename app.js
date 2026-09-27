@@ -22,6 +22,8 @@
   let summaryVisibleCount = 10;
   let appointmentDateTap = null;
   const paymentSelection = new Set();
+  const pendingSaves = new Set();
+  let updateApplying = false;
 
   const uid = () => crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
   const pad = value => String(value).padStart(2, '0');
@@ -64,14 +66,23 @@
     state.settings ||= { view: 'week' };
   }
 
-  async function saveState() {
+  function saveState() {
+    const operation = persistState();
+    pendingSaves.add(operation);
+    operation.then(() => pendingSaves.delete(operation), () => pendingSaves.delete(operation));
+    return operation;
+  }
+
+  async function persistState() {
     try {
       if (storageMode === 'localStorage') throw new Error('fallback');
       const db = await openDatabase();
       await new Promise((resolve, reject) => {
-        const request = db.transaction(STORE, 'readwrite').objectStore(STORE).put(state, STATE_KEY);
-        request.onsuccess = resolve;
-        request.onerror = () => reject(request.error);
+        const transaction = db.transaction(STORE, 'readwrite');
+        transaction.objectStore(STORE).put(state, STATE_KEY);
+        transaction.oncomplete = resolve;
+        transaction.onabort = () => reject(transaction.error);
+        transaction.onerror = () => reject(transaction.error);
       });
       db.close();
     } catch {
@@ -154,7 +165,7 @@
       const date = addDays(monday, index);
       const today = isoDate(date) === isoDate(new Date());
       html += `<div class="day-column ${today ? 'today' : ''}" data-date="${isoDate(date)}">
-        <div class="day-head"><span>${weekdays[date.getDay()]}</span><b>${date.getDate()}</b></div>
+        <button class="day-head week-day-button" type="button" data-open-day="${isoDate(date)}" aria-label="Abrir ${escapeHTML(date.toLocaleDateString('pt-BR'))} na visão Dia"><span>${weekdays[date.getDay()]}</span><b>${date.getDate()}</b></button>
         <div class="day-hit-area" data-date="${isoDate(date)}"></div>${relevantEvents(date).map(eventCard).join('')}</div>`;
     }
     $('#calendar').innerHTML = `${html}</div>`;
@@ -653,12 +664,12 @@
     const items = state.appointments.filter(item => item.kind === 'appointment' && item.type !== 'Outro' && item.date.startsWith(key));
     const sum = filter => items.filter(filter).reduce((total,item) => total + Number(item.value || 0), 0);
     const received = sum(item => item.financialStatus === 'Pago');
-    const receivable = sum(item => item.financialStatus === 'A receber');
+    const receivable = sum(item => item.financialStatus === 'A receber' || item.financialStatus === 'Não pago');
     const predicted = received + receivable;
     const cards = [
-      ['Recebido',received,'var(--accent-strong)'],['A receber',receivable,'var(--amber)'],['Total previsto',predicted,'var(--lilac)']
+      ['Recebido',received,'var(--accent-strong)','Sessões pagas do mês'],['Pendente',receivable,'var(--amber)','A receber + Não pago'],['Total previsto',predicted,'var(--lilac)','Recebido + Pendente']
     ];
-    $('#finance-cards').innerHTML = cards.map(([label,value,color]) => `<article class="finance-card" style="--card-color:${color}"><span>${label}</span><strong>${formatMoney(value)}</strong><i></i></article>`).join('');
+    $('#finance-cards').innerHTML = cards.map(([label,value,color,description]) => `<article class="finance-card" style="--card-color:${color}"><span>${label}</span><strong>${formatMoney(value)}</strong><small class="finance-description">${description}</small><i></i></article>`).join('');
     const monthDate = parseDate(`${key}-01`);
     const groups = new Map();
     items.forEach(item => {
@@ -679,7 +690,9 @@
     const remaining = Math.max(0, clients.length - visibleClients.length);
     $('#summary-list').innerHTML = visibleClients.map(group => {
       const total = group.items.reduce((sum,item) => sum + Number(item.value || 0), 0);
-      return `<button class="summary-row summary-client-row" data-summary-client="${escapeHTML(group.key)}" type="button"><span class="summary-client-name"><strong>${escapeHTML(group.name)}</strong><small>${group.items.length} atendimento${group.items.length === 1 ? '' : 's'}</small></span><span class="status-chip ${group.statusClass}">${group.status}</span><strong>${formatMoney(total)}</strong><span class="row-arrow">›</span></button>`;
+      const paidCount = group.items.filter(item => item.financialStatus === 'Pago').length;
+      const pending = group.items.filter(item => item.financialStatus === 'A receber' || item.financialStatus === 'Não pago').reduce((sum,item) => sum + Number(item.value || 0), 0);
+      return `<button class="summary-row summary-client-row" data-summary-client="${escapeHTML(group.key)}" type="button"><span class="summary-client-name"><strong>${escapeHTML(group.name)}</strong><small>${paidCount} de ${group.items.length} sessões pagas</small></span><span class="status-chip ${group.statusClass}">${group.status}</span><span class="summary-amounts"><strong>Pendente: ${formatMoney(pending)}</strong><small>Total do mês: ${formatMoney(total)}</small></span><span class="row-arrow">›</span></button>`;
     }).join('') + (remaining ? `<div class="summary-more-wrap"><button class="summary-more-button" data-summary-more type="button">Mostrar mais 10 <span>${remaining} restante${remaining === 1 ? '' : 's'}</span></button></div>` : '');
   }
 
@@ -814,6 +827,14 @@
     $('#fab').addEventListener('click', () => openNewAppointment(isoDate(anchorDate), '09:00'));
     $('#calendar').addEventListener('click', event => {
       if (Date.now() < suppressCalendarClickUntil) { event.preventDefault(); return; }
+      const dayButton = event.target.closest('[data-open-day]');
+      if (dayButton) {
+        const scrollTop = $('#calendar').scrollTop;
+        anchorDate = parseDate(dayButton.dataset.openDay);
+        setView('day');
+        $('#calendar').scrollTop = scrollTop;
+        return;
+      }
       const eventButton = event.target.closest('[data-event-id]');
       if (eventButton) { event.stopPropagation(); openEditAppointment(eventButton.dataset.eventId); return; }
       const monthDay = event.target.closest('.month-day[data-date]');
@@ -878,9 +899,56 @@
     bindCalendarSwipe();
     setView(state.settings.view || 'week');
     setTab('agenda');
-    if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
+    setupUpdates();
+  }
+
+  async function setupUpdates() {
+    if (!('serviceWorker' in navigator)) return;
+    try {
+      const registration = await navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' });
+      let lastCheck = Date.now();
+      const showUpdate = () => $('#update-notice').classList.toggle('hidden', !registration.waiting);
+      const watchInstalling = () => {
+        const worker = registration.installing;
+        if (worker) worker.addEventListener('statechange', showUpdate);
+      };
+      registration.addEventListener('updatefound', watchInstalling);
+      watchInstalling();
+      showUpdate();
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && Date.now() - lastCheck >= 60000) {
+          lastCheck = Date.now();
+          registration.update().catch(() => {});
+        }
+      });
+      let reloaded = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (updateApplying && !reloaded) { reloaded = true; location.reload(); }
+        else showUpdate();
+      });
+      $('#apply-update').addEventListener('click', async () => {
+        if (updateApplying || !registration.waiting) return;
+        if (document.querySelector('dialog[open]')) {
+          showToast('Salve ou feche o formulário antes de atualizar.');
+          return;
+        }
+        updateApplying = true;
+        $('#apply-update').disabled = true;
+        $('#update-message').textContent = 'Preparando atualização…';
+        try {
+          while (pendingSaves.size) await Promise.all([...pendingSaves]);
+          if (document.querySelector('dialog[open]')) throw new Error('form-open');
+          if (!registration.waiting) throw new Error('worker-missing');
+          registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+        } catch {
+          updateApplying = false;
+          $('#apply-update').disabled = false;
+          $('#update-message').textContent = 'Atualização disponível';
+          showToast('Não foi possível atualizar agora. Salve e tente novamente.');
+        }
+      });
+    } catch { /* Offline or unavailable: keep the current version usable. */ }
   }
 
   init();
 })();
-
