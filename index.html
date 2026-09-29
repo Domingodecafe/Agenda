@@ -7,13 +7,13 @@
   <meta name="description" content="Agenda de atendimentos privada, offline e salva no seu dispositivo.">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=22">
+  <link rel="stylesheet" href="styles.css?v=23">
   <title>Agenda</title>
 </head>
 <body>
   <div id="app" class="app-shell">
     <header class="topbar">
-      <div class="brand"><span class="brand-mark">A</span><h1>Agenda</h1><span class="app-version" aria-label="Versão em uso 22">v22</span></div>
+      <div class="brand"><span class="brand-mark">A</span><h1>Agenda</h1><span class="app-version" aria-label="Versão em uso 23">v23</span></div>
       <div class="header-actions">
         <button id="install-button" class="icon-button install-button hidden" type="button" title="Instalar aplicativo" aria-label="Instalar aplicativo">⇩</button>
         <button id="today-header" class="text-button" type="button">Hoje</button>
@@ -48,12 +48,12 @@
 
       <section id="summary-screen" class="screen" aria-label="Resumo financeiro">
         <div id="summary-overview">
-          <div class="section-heading"><div><span class="eyebrow">FINANCEIRO</span><h2>Resumo mensal</h2><p>Valores pelo mês dos atendimentos, não pela data do pagamento.</p></div><label class="month-picker"><span>Mês</span><input id="summary-month" type="month"></label></div>
+          <div class="section-heading"><div><span class="eyebrow">FINANCEIRO</span><div class="summary-title"><h2>Resumo mensal</h2><button class="values-toggle" data-toggle-values type="button" aria-label="Ocultar valores" aria-pressed="false" title="Ocultar valores"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/><path class="eye-slash hidden" d="m3 3 18 18"/></svg></button></div><p>Valores pelo mês dos atendimentos, não pela data do pagamento.</p></div><label class="month-picker"><span>Mês</span><input id="summary-month" type="month"></label></div>
           <div id="finance-cards" class="finance-grid"></div>
           <div class="surface summary-panel"><div class="panel-heading"><div><span class="eyebrow">CLIENTES</span><h3 id="summary-list-title">Movimentos do mês</h3></div><span class="panel-hint">Toque em um cliente para ver o histórico</span></div><div id="summary-list" class="summary-list"></div></div>
         </div>
         <div id="client-finance-detail" class="client-finance-detail hidden">
-          <div class="detail-heading"><button id="summary-back" class="secondary-button" type="button">← Voltar</button><div><span class="eyebrow">HISTÓRICO FINANCEIRO</span><h2 id="detail-client-name"></h2><p id="detail-client-subtitle"></p></div></div>
+          <div class="detail-heading"><button id="summary-back" class="secondary-button" type="button">← Voltar</button><div><span class="eyebrow">HISTÓRICO FINANCEIRO</span><div class="summary-title"><h2 id="detail-client-name"></h2><button class="values-toggle" data-toggle-values type="button" aria-label="Ocultar valores" aria-pressed="false" title="Ocultar valores"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/><path class="eye-slash hidden" d="m3 3 18 18"/></svg></button></div><p id="detail-client-subtitle"></p></div></div>
           <section class="appointment-section surface"><div class="appointment-section-heading"><div><span class="eyebrow">HISTÓRICO</span><h3>Atendimentos passados</h3></div><span id="past-count" class="section-count"></span></div><div id="past-appointments" class="finance-appointment-list"></div></section>
           <div id="payment-bar" class="payment-bar hidden"><div class="payment-total"><div><span id="payment-selection-count">0 selecionados</span><strong id="payment-selection-total">R$ 0,00</strong></div><button id="clear-payment-selection" class="text-action" type="button">Limpar seleção</button></div><div class="payment-actions" role="group" aria-label="Alterar status financeiro"><button class="secondary-button" data-financial-action="A receber" type="button">A receber</button><button class="primary-button" data-financial-action="Pago" type="button">Pago</button><button class="danger-button" data-financial-action="Não pago" type="button">Não pago</button></div></div>
           <section class="appointment-section surface"><div class="appointment-section-heading"><div><span class="eyebrow">AGENDA</span><h3>Próximos atendimentos</h3></div><span id="future-count" class="section-count"></span></div><div id="future-appointments" class="finance-appointment-list"></div></section>
@@ -144,6 +144,6 @@
   </dialog>
   <dialog id="payment-history-dialog" class="modal small-modal payment-history-dialog"><form method="dialog"><div class="modal-header"><div><span class="eyebrow">AUDITORIA</span><h2>Histórico do pagamento</h2></div><button class="close-button" value="cancel" aria-label="Fechar">×</button></div><div id="payment-history-list" class="payment-history-list"></div><div class="modal-actions"><span></span><button class="primary-button" value="cancel">Fechar</button></div></form></dialog>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script src="app.js?v=22" defer></script>
+  <script src="app.js?v=23" defer></script>
 </body>
 </html>
