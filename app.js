@@ -785,7 +785,36 @@
     return registered ? `id:${registered.id}` : `name:${normalizeClientName(item.clientName)}`;
   }
 
+  const summaryMoney = value => state.settings.hideSummaryValues ? 'R$ •••••' : formatMoney(value);
+
+  function syncPrivacyButtons() {
+    const hidden = Boolean(state.settings.hideSummaryValues);
+    $('[data-toggle-values]').forEach(button => {
+      button.setAttribute('aria-label', hidden ? 'Mostrar valores' : 'Ocultar valores');
+      button.setAttribute('aria-pressed', String(hidden));
+      button.title = hidden ? 'Mostrar valores' : 'Ocultar valores';
+      button.querySelector('.eye-slash').classList.toggle('hidden', !hidden);
+    });
+  }
+
+  async function toggleSummaryValues() {
+    state.settings.hideSummaryValues = !state.settings.hideSummaryValues;
+    const client = summaryClient;
+    const selected = [...paymentSelection];
+    renderSummary();
+    if (client) {
+      summaryClient = client;
+      selected.forEach(id => paymentSelection.add(id));
+      $('#summary-overview').classList.add('hidden');
+      $('#client-finance-detail').classList.remove('hidden');
+      renderClientFinanceDetail();
+    }
+    try { await saveState(); }
+    catch { showToast('A preferência mudou, mas não foi possível salvá-la neste dispositivo.'); }
+  }
+
   function renderSummary() {
+    syncPrivacyButtons();
     summaryClient = null;
     paymentSelection.clear();
     $('#summary-overview').classList.remove('hidden');
@@ -800,7 +829,7 @@
     const cards = [
       ['Recebido',received,'var(--accent-strong)','Sessões pagas do mês'],['Pendente',receivable,'var(--amber)','A receber + Não pago'],['Total previsto',predicted,'var(--lilac)','Recebido + Pendente']
     ];
-    $('#finance-cards').innerHTML = cards.map(([label,value,color,description]) => `<article class="finance-card" style="--card-color:${color}"><span>${label}</span><strong>${formatMoney(value)}</strong><small class="finance-description">${description}</small><i></i></article>`).join('');
+    $('#finance-cards').innerHTML = cards.map(([label,value,color,description]) => `<article class="finance-card" style="--card-color:${color}"><span>${label}</span><strong>${summaryMoney(value)}</strong><small class="finance-description">${description}</small><i></i></article>`).join('');
     const monthDate = parseDate(`${key}-01`);
     const groups = new Map();
     items.forEach(item => {
@@ -823,7 +852,7 @@
       const total = group.items.reduce((sum,item) => sum + Number(item.value || 0), 0);
       const paidCount = group.items.filter(item => item.financialStatus === 'Pago').length;
       const pending = group.items.filter(item => item.financialStatus === 'A receber' || item.financialStatus === 'Não pago').reduce((sum,item) => sum + Number(item.value || 0), 0);
-      return `<button class="summary-row summary-client-row" data-summary-client="${escapeHTML(group.key)}" type="button"><span class="summary-client-name"><strong>${escapeHTML(group.name)}</strong><small>${paidCount} de ${group.items.length} sessões pagas</small></span><span class="status-chip ${group.statusClass}">${group.status}</span><span class="summary-amounts"><strong>Pendente: ${formatMoney(pending)}</strong><small>Total do mês: ${formatMoney(total)}</small></span><span class="row-arrow">›</span></button>`;
+      return `<button class="summary-row summary-client-row" data-summary-client="${escapeHTML(group.key)}" type="button"><span class="summary-client-name"><strong>${escapeHTML(group.name)}</strong><small>${paidCount} de ${group.items.length} sessões pagas</small></span><span class="status-chip ${group.statusClass}">${group.status}</span><span class="summary-amounts"><strong>Pendente: ${summaryMoney(pending)}</strong><small>Total do mês: ${summaryMoney(total)}</small></span><span class="row-arrow">›</span></button>`;
     }).join('') + (remaining ? `<div class="summary-more-wrap"><button class="summary-more-button" data-summary-more type="button">Mostrar mais 10 <span>${remaining} restante${remaining === 1 ? '' : 's'}</span></button></div>` : '');
   }
 
@@ -839,7 +868,7 @@
       <span class="payment-check"><input type="checkbox" data-payment-id="${item.id}" ${checked ? 'checked' : ''} aria-label="Selecionar atendimento de ${escapeHTML(date)}"></span>
       <button class="appointment-date appointment-date-button" data-appointment-date-id="${item.id}" type="button" aria-label="Selecionar ${escapeHTML(date)}; toque duas vezes para abrir o atendimento na Agenda"><strong>${escapeHTML(date)}</strong><small>${escapeHTML(item.start)}–${escapeHTML(item.end)}</small></button>
       <span class="status-chip ${statusClass}">${escapeHTML(item.financialStatus || 'A receber')}</span>
-      <strong class="appointment-value">${formatMoney(item.value)}</strong>
+      <strong class="appointment-value">${summaryMoney(item.value)}</strong>
     </div>`;
   }
 
@@ -876,7 +905,7 @@
     const selected = state.appointments.filter(item => paymentSelection.has(item.id));
     const total = selected.reduce((sum,item) => sum + Number(item.value || 0), 0);
     $('#payment-selection-count').textContent = `${selected.length} selecionado${selected.length === 1 ? '' : 's'}`;
-    $('#payment-selection-total').textContent = formatMoney(total);
+    $('#payment-selection-total').textContent = summaryMoney(total);
     $('#payment-bar').classList.toggle('hidden', !selected.length);
     $('#clear-payment-selection').classList.toggle('hidden', !selected.length);
   }
@@ -1030,6 +1059,7 @@
       const row = event.target.closest('[data-summary-client]');
       if (row) openClientFinanceDetail(row.dataset.summaryClient);
     });
+    $('[data-toggle-values]').forEach(button => button.addEventListener('click', toggleSummaryValues));
     $('#summary-back').addEventListener('click', renderSummary);
     $('#clear-payment-selection').addEventListener('click', () => { paymentSelection.clear(); renderClientFinanceDetail(); });
     $$('[data-financial-action]').forEach(button => button.addEventListener('click', () => applyFinancialStatus(button.dataset.financialAction)));
