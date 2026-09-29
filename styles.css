@@ -128,6 +128,9 @@ main{max-width:1480px;margin:auto}.screen{display:none;animation:fade .2s ease}.
 @media(max-width:640px){.payment-bar>.payment-total{width:100%;flex-direction:row;align-items:center;justify-content:space-between}}
 @media(max-width:400px){.finance-grid{grid-template-columns:1fr}}
 
+.summary-title{display:flex;align-items:center;gap:10px}.summary-title h2{min-width:0}.values-toggle{display:inline-flex;align-items:center;justify-content:center;flex:0 0 44px;width:44px;height:44px;padding:0;border:1px solid var(--line2);border-radius:12px;background:var(--surface2);color:var(--muted)}.values-toggle:hover,.values-toggle[aria-pressed="true"]{color:var(--accent);border-color:var(--accent)}.values-toggle:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+@media(max-width:640px){.summary-title{gap:6px}.summary-title h2{font-size:24px}.summary-title .values-toggle{flex-basis:44px}#summary-overview>.section-heading{flex-wrap:wrap}#summary-overview>.section-heading .month-picker{margin-left:auto}}
+
 /* Payment details and audit */
 .active-payment-card{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:-2px 0 15px;padding:13px 14px;border:1px solid rgba(126,231,161,.22);border-radius:13px;background:rgba(126,231,161,.055)}
 .active-payment-card>div:first-child{display:flex;flex-direction:column;gap:4px;min-width:0}.active-payment-card span{color:var(--muted);font-size:10px}.active-payment-card strong{font-size:12px;overflow-wrap:anywhere}.active-payment-card>div:last-child{display:flex;align-items:center;gap:2px;flex-wrap:wrap;justify-content:flex-end}
