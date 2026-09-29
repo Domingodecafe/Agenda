@@ -789,7 +789,7 @@
 
   function syncPrivacyButtons() {
     const hidden = Boolean(state.settings.hideSummaryValues);
-    $('[data-toggle-values]').forEach(button => {
+    $$('[data-toggle-values]').forEach(button => {
       button.setAttribute('aria-label', hidden ? 'Mostrar valores' : 'Ocultar valores');
       button.setAttribute('aria-pressed', String(hidden));
       button.title = hidden ? 'Mostrar valores' : 'Ocultar valores';
@@ -1059,7 +1059,7 @@
       const row = event.target.closest('[data-summary-client]');
       if (row) openClientFinanceDetail(row.dataset.summaryClient);
     });
-    $('[data-toggle-values]').forEach(button => button.addEventListener('click', toggleSummaryValues));
+    $$('[data-toggle-values]').forEach(button => button.addEventListener('click', toggleSummaryValues));
     $('#summary-back').addEventListener('click', renderSummary);
     $('#clear-payment-selection').addEventListener('click', () => { paymentSelection.clear(); renderClientFinanceDetail(); });
     $$('[data-financial-action]').forEach(button => button.addEventListener('click', () => applyFinancialStatus(button.dataset.financialAction)));
