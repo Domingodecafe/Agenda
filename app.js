@@ -20,6 +20,7 @@
   let suppressCalendarClickUntil = 0;
   let summaryClient = null;
   let summaryVisibleCount = 10;
+  let summaryReturnPosition = null;
   let appointmentDateTap = null;
   const paymentSelection = new Set();
   const pendingSaves = new Set();
@@ -149,7 +150,7 @@
     $('#today-header').classList.toggle('hidden', tab !== 'agenda');
     if (tab === 'clients') renderClients();
     if (tab === 'summary') {
-      if (enteringSummary) summaryVisibleCount = 10;
+      if (enteringSummary) { summaryVisibleCount = 10; summaryReturnPosition = null; }
       renderSummary();
     }
   }
@@ -813,7 +814,7 @@
     catch { showToast('A preferência mudou, mas não foi possível salvá-la neste dispositivo.'); }
   }
 
-  function renderSummary() {
+  function renderSummary(returnClientKey = null) {
     syncPrivacyButtons();
     summaryClient = null;
     paymentSelection.clear();
@@ -846,6 +847,8 @@
     if (!items.length) {
       $('#summary-list').innerHTML = '<div class="empty-state" style="min-height:260px"><div><span class="empty-icon">◔</span><h3>Nenhum movimento neste mês</h3><p>Os valores dos atendimentos aparecerão aqui conforme você agenda.</p></div></div>'; return;
     }
+    const returnIndex = clients.findIndex(group => group.key === returnClientKey);
+    if (returnIndex >= 0) summaryVisibleCount = Math.max(summaryVisibleCount, Math.ceil((returnIndex + 1) / 10) * 10);
     const visibleClients = clients.slice(0, summaryVisibleCount);
     const remaining = Math.max(0, clients.length - visibleClients.length);
     $('#summary-list').innerHTML = visibleClients.map(group => {
@@ -893,12 +896,39 @@
     const monthItems = state.appointments.filter(item => item.kind === 'appointment' && item.type !== 'Outro' && summaryClientKey(item) === key);
     const sample = monthItems[0];
     if (!sample) return;
+    const row = $$('[data-summary-client]').find(button => button.dataset.summaryClient === key);
+    summaryReturnPosition = {
+      key, month: $('#summary-month').value, visibleCount: summaryVisibleCount,
+      scrollY: window.scrollY, rowTop: row?.getBoundingClientRect().top ?? 0
+    };
     summaryClient = { id: sample.clientId || '', name: sample.clientName };
     paymentSelection.clear();
     $('#summary-overview').classList.add('hidden');
     $('#client-finance-detail').classList.remove('hidden');
     renderClientFinanceDetail();
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function returnToSummaryClient() {
+    const position = summaryReturnPosition;
+    if (appointmentDateTap) {
+      clearTimeout(appointmentDateTap.timer);
+      appointmentDateTap = null;
+    }
+    if (position) {
+      $('#summary-month').value = position.month;
+      summaryVisibleCount = Math.max(summaryVisibleCount, position.visibleCount);
+    }
+    renderSummary(position?.key);
+    if (!position) return;
+    requestAnimationFrame(() => {
+      if (activeTab !== 'summary' || summaryClient) return;
+      const row = $$('[data-summary-client]').find(button => button.dataset.summaryClient === position.key);
+      const top = row ? window.scrollY + row.getBoundingClientRect().top - position.rowTop : position.scrollY;
+      const maxScroll = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+      window.scrollTo({ top: Math.max(0, Math.min(top, maxScroll)), behavior: 'instant' });
+      row?.focus({ preventScroll: true });
+    });
   }
 
   function updatePaymentBar() {
@@ -1052,7 +1082,7 @@
     $('#client-list').addEventListener('click', event => { const card = event.target.closest('[data-client-id]'); if (card) openClientDialog(card.dataset.clientId); });
     $('#client-search').addEventListener('input', renderClients);
     $('#delete-client').addEventListener('click', deleteClient);
-    $('#summary-month').addEventListener('change', () => { summaryVisibleCount = 10; renderSummary(); });
+    $('#summary-month').addEventListener('change', () => { summaryVisibleCount = 10; summaryReturnPosition = null; renderSummary(); });
     $('#summary-list').addEventListener('click', event => {
       const moreButton = event.target.closest('[data-summary-more]');
       if (moreButton) { summaryVisibleCount += 10; renderSummary(); return; }
@@ -1060,7 +1090,7 @@
       if (row) openClientFinanceDetail(row.dataset.summaryClient);
     });
     $$('[data-toggle-values]').forEach(button => button.addEventListener('click', toggleSummaryValues));
-    $('#summary-back').addEventListener('click', renderSummary);
+    $('#summary-back').addEventListener('click', returnToSummaryClient);
     $('#clear-payment-selection').addEventListener('click', () => { paymentSelection.clear(); renderClientFinanceDetail(); });
     $$('[data-financial-action]').forEach(button => button.addEventListener('click', () => applyFinancialStatus(button.dataset.financialAction)));
     $('#client-finance-detail').addEventListener('change', event => {
