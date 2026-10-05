@@ -1128,7 +1128,7 @@
     if (!('serviceWorker' in navigator)) return;
     try {
       const registration = await navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' });
-      let lastCheck = Date.now();
+      let lastCheck = 0;
       const showUpdate = () => $('#update-notice').classList.toggle('hidden', !registration.waiting);
       const watchInstalling = () => {
         const worker = registration.installing;
@@ -1137,12 +1137,18 @@
       registration.addEventListener('updatefound', watchInstalling);
       watchInstalling();
       showUpdate();
+      const checkForUpdate = async () => {
+        showUpdate();
+        if (Date.now() - lastCheck < 60000) return;
+        lastCheck = Date.now();
+        try { await registration.update(); } catch { /* Keep offline access available. */ }
+        showUpdate();
+      };
       document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible' && Date.now() - lastCheck >= 60000) {
-          lastCheck = Date.now();
-          registration.update().catch(() => {});
-        }
+        if (document.visibilityState === 'visible') checkForUpdate();
       });
+      window.addEventListener('pageshow', checkForUpdate);
+      window.addEventListener('online', checkForUpdate);
       let reloaded = false;
       navigator.serviceWorker.addEventListener('controllerchange', () => {
         if (updateApplying && !reloaded) { reloaded = true; location.reload(); }
@@ -1169,6 +1175,7 @@
           showToast('Não foi possível atualizar agora. Salve e tente novamente.');
         }
       });
+      await checkForUpdate();
     } catch { /* Offline or unavailable: keep the current version usable. */ }
   }
 
