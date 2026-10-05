@@ -39,7 +39,7 @@ PWA responsiva para organizar atendimentos. Os dados são salvos somente no nave
 - O Resumo apresenta Recebido, Pendente (A receber + Não pago) e Total previsto, pelo mês dos atendimentos.
 - Cada cliente mostra sessões pagas, valor pendente e total mensal.
 - Os cabeçalhos da semana abrem a visão Dia, preservando a posição vertical.
-- A versão v24 aparece junto à marca; novas versões oferecem o botão Atualizar após baixar, sem descartar formulários abertos.
+- A versão v25 aparece junto à marca; novas versões oferecem o botão Atualizar após baixar, sem descartar formulários abertos.
 - O botão de olho no Resumo e no histórico oculta todos os valores dessas telas, inclusive o total selecionado. A preferência fica salva no aparelho; edição e confirmação de pagamento continuam mostrando os valores.
 - Pagamentos registram data, forma (PIX, Dinheiro ou Outro) e descrição opcional.
 - Pagamentos em lote são preenchidos sessão por sessão e gravados juntos após confirmação.
@@ -49,3 +49,4 @@ PWA responsiva para organizar atendimentos. Os dados são salvos somente no nave
 - Funcionamento offline após a primeira abertura em um endereço HTTPS.
 - Transições suaves entre telas, abas, calendários e modais, respeitando a preferência de redução de movimento do aparelho.
 - Voltar do histórico financeiro retorna ao cliente selecionado na lista, inclusive após reordenação por pagamentos.
+- Tema Grafite & Menta: fundo uniforme, navegação com ícones, controles legíveis e Resumo compacto com Recebido em destaque.
