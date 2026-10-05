@@ -3,17 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#090a0d">
+  <meta name="theme-color" content="#101416">
   <meta name="description" content="Agenda de atendimentos privada, offline e salva no seu dispositivo.">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=24">
+  <link rel="stylesheet" href="styles.css?v=25">
   <title>Agenda</title>
 </head>
 <body>
   <div id="app" class="app-shell">
     <header class="topbar">
-      <div class="brand"><span class="brand-mark">A</span><h1>Agenda</h1><span class="app-version" aria-label="Versão em uso 24">v24</span></div>
+      <div class="brand"><span class="brand-mark">A</span><h1>Agenda</h1><span class="app-version" aria-label="Versão em uso 25">v25</span></div>
       <div class="header-actions">
         <button id="install-button" class="icon-button install-button hidden" type="button" title="Instalar aplicativo" aria-label="Instalar aplicativo">⇩</button>
         <button id="today-header" class="text-button" type="button">Hoje</button>
@@ -63,9 +63,9 @@
 
     <button id="fab" class="fab" type="button"><span>＋</span><b>Novo atendimento</b></button>
     <nav class="bottom-nav" aria-label="Navegação principal">
-      <button data-tab="agenda" class="active" type="button"><span class="nav-icon">▦</span><span>Agenda</span></button>
-      <button data-tab="clients" type="button"><span class="nav-icon">♙</span><span>Clientes</span></button>
-      <button data-tab="summary" type="button"><span class="nav-icon">◔</span><span>Resumo</span></button>
+      <button data-tab="agenda" class="active" type="button"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M7 3v4m10-4v4M3 11h18m-13 4h2"/></svg></span><span>Agenda</span></button>
+      <button data-tab="clients" type="button"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 21v-2a6 6 0 0 1 12 0v2M16 5a3 3 0 0 1 0 6m2 4a5 5 0 0 1 3 5"/></svg></span><span>Clientes</span></button>
+      <button data-tab="summary" type="button"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 20v-6m7 6V9m7 11V4"/></svg></span><span>Resumo</span></button>
     </nav>
   </div>
 
@@ -144,6 +144,6 @@
   </dialog>
   <dialog id="payment-history-dialog" class="modal small-modal payment-history-dialog"><form method="dialog"><div class="modal-header"><div><span class="eyebrow">AUDITORIA</span><h2>Histórico do pagamento</h2></div><button class="close-button" value="cancel" aria-label="Fechar">×</button></div><div id="payment-history-list" class="payment-history-list"></div><div class="modal-actions"><span></span><button class="primary-button" value="cancel">Fechar</button></div></form></dialog>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script src="app.js?v=24" defer></script>
+  <script src="app.js?v=25" defer></script>
 </body>
 </html>
