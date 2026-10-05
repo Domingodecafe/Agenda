@@ -7,13 +7,13 @@
   <meta name="description" content="Agenda de atendimentos privada, offline e salva no seu dispositivo.">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=25">
+  <link rel="stylesheet" href="styles.css?v=26">
   <title>Agenda</title>
 </head>
 <body>
   <div id="app" class="app-shell">
     <header class="topbar">
-      <div class="brand"><span class="brand-mark">A</span><h1>Agenda</h1><span class="app-version" aria-label="Versão em uso 25">v25</span></div>
+      <div class="brand"><span class="brand-mark">A</span><h1>Agenda</h1><span class="app-version" aria-label="Versão em uso 26">v26</span></div>
       <div class="header-actions">
         <button id="install-button" class="icon-button install-button hidden" type="button" title="Instalar aplicativo" aria-label="Instalar aplicativo">⇩</button>
         <button id="today-header" class="text-button" type="button">Hoje</button>
@@ -41,7 +41,7 @@
       </section>
 
       <section id="clients-screen" class="screen" aria-label="Clientes">
-        <div class="section-heading"><div><span class="eyebrow">CADASTROS</span><h2>Clientes</h2><p>Informações essenciais para agendar mais rápido.</p></div><button id="new-client" class="primary-button" type="button">＋ Novo cliente</button></div>
+        <div class="section-heading"><div><span class="eyebrow">CADASTROS</span><h2>Clientes</h2><p>Informações essenciais para agendar mais rápido.</p></div><button id="new-client" class="primary-button" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Novo cliente</span></button></div>
         <div class="search-wrap"><span>⌕</span><input id="client-search" type="search" placeholder="Buscar por nome ou telefone" aria-label="Buscar clientes"></div>
         <div id="client-list" class="client-grid"></div>
       </section>
@@ -144,6 +144,6 @@
   </dialog>
   <dialog id="payment-history-dialog" class="modal small-modal payment-history-dialog"><form method="dialog"><div class="modal-header"><div><span class="eyebrow">AUDITORIA</span><h2>Histórico do pagamento</h2></div><button class="close-button" value="cancel" aria-label="Fechar">×</button></div><div id="payment-history-list" class="payment-history-list"></div><div class="modal-actions"><span></span><button class="primary-button" value="cancel">Fechar</button></div></form></dialog>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script src="app.js?v=25" defer></script>
+  <script src="app.js?v=26" defer></script>
 </body>
 </html>
