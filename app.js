@@ -774,11 +774,11 @@
     return date;
   }
 
-  function summaryStatus(items) {
-    const paid = items.filter(item => item.financialStatus === 'Pago').length;
-    if (paid === items.length) return ['Pago', 'paid'];
-    if (paid === 0) return ['Pendente', 'unpaid'];
-    return ['Parcial', 'partial'];
+  function summaryStatus(items, now = new Date()) {
+    const open = items.filter(item => item.financialStatus !== 'Pago');
+    if (!open.length) return ['Pago', 'paid'];
+    if (open.some(item => appointmentEnd(item) < now)) return ['Pendente', 'unpaid'];
+    return ['A receber', ''];
   }
 
   function summaryClientKey(item) {
@@ -838,9 +838,10 @@
       if (!groups.has(key)) groups.set(key, { key, id: item.clientId || '', name: item.clientName, items: [] });
       groups.get(key).items.push(item);
     });
-    const statusPriority = { Pendente: 0, Parcial: 1, Pago: 2 };
+    const now = new Date();
+    const statusPriority = { Pendente: 0, 'A receber': 1, Pago: 2 };
     const clients = [...groups.values()].map(group => {
-      const [status, statusClass] = summaryStatus(group.items);
+      const [status, statusClass] = summaryStatus(group.items, now);
       return { ...group, status, statusClass };
     }).sort((a,b) => statusPriority[a.status] - statusPriority[b.status] || a.name.localeCompare(b.name, 'pt-BR'));
     $('#summary-list-title').textContent = `${clients.length} cliente${clients.length === 1 ? '' : 's'} em ${months[monthDate.getMonth()]}`;
@@ -857,6 +858,15 @@
       const pending = group.items.filter(item => item.financialStatus === 'A receber' || item.financialStatus === 'Não pago').reduce((sum,item) => sum + Number(item.value || 0), 0);
       return `<button class="summary-row summary-client-row" data-summary-client="${escapeHTML(group.key)}" type="button"><span class="summary-client-name"><strong>${escapeHTML(group.name)}</strong><small>${paidCount} de ${group.items.length} sessões pagas</small></span><span class="status-chip ${group.statusClass}">${group.status}</span><span class="summary-amounts"><strong>Pendente: ${summaryMoney(pending)}</strong><small>Total do mês: ${summaryMoney(total)}</small></span><span class="row-arrow">›</span></button>`;
     }).join('') + (remaining ? `<div class="summary-more-wrap"><button class="summary-more-button" data-summary-more type="button">Mostrar mais 10 <span>${remaining} restante${remaining === 1 ? '' : 's'}</span></button></div>` : '');
+  }
+
+  function refreshSummaryStatus() {
+    if (activeTab !== 'summary' || summaryClient || document.visibilityState === 'hidden' || document.querySelector('dialog[open]')) return;
+    const scrollTop = window.scrollY;
+    const focusedKey = document.activeElement?.closest('[data-summary-client]')?.dataset.summaryClient;
+    renderSummary();
+    if (focusedKey) $$('[data-summary-client]').find(row => row.dataset.summaryClient === focusedKey)?.focus({ preventScroll: true });
+    window.scrollTo({ top: scrollTop, behavior: 'instant' });
   }
 
   function selectedClientAppointments() {
@@ -1121,6 +1131,8 @@
     bindCalendarSwipe();
     setView(state.settings.view || 'week');
     setTab('agenda');
+    window.setInterval(refreshSummaryStatus, 60000);
+    document.addEventListener('visibilitychange', refreshSummaryStatus);
     setupUpdates();
   }
 
