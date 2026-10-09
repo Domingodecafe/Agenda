@@ -262,3 +262,5 @@ body,button,input,select,textarea{font-family:system-ui,-apple-system,"Segoe UI"
 #new-client{display:inline-flex;align-items:center;justify-content:center;gap:8px;flex-shrink:0;white-space:nowrap;line-height:1.2}
 #new-client::first-letter{font-size:inherit}
 #new-client svg{width:18px;height:18px;flex-shrink:0}
+.summary-client-name{min-width:0}
+.summary-client-name small{white-space:normal;line-height:1.45;overflow-wrap:anywhere}
