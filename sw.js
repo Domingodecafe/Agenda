@@ -1,5 +1,5 @@
-const CACHE = 'agenda-1-0-v28';
-const FILES = ['./index.html','./styles.css?v=28','./app.js?v=28','./manifest.webmanifest','./icon.svg'];
+const CACHE = 'agenda-1-0-v29';
+const FILES = ['./index.html','./styles.css?v=29','./app.js?v=29','./manifest.webmanifest','./icon.svg'];
 const coreURLs = new Set(FILES.map(path => new URL(path, self.registration.scope).href));
 self.addEventListener('install', event => event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(FILES))));
 self.addEventListener('message', event => {
