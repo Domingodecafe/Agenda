@@ -19,6 +19,9 @@
   let toastTimer;
   let suppressCalendarClickUntil = 0;
   let summaryClient = null;
+  let summaryMode = 'due';
+  let summaryUndated = false;
+  let summaryDetailAll = false;
   let summaryVisibleCount = 10;
   let summaryReturnPosition = null;
   let appointmentDateTap = null;
@@ -150,7 +153,7 @@
     $('#today-header').classList.toggle('hidden', tab !== 'agenda');
     if (tab === 'clients') renderClients();
     if (tab === 'summary') {
-      if (enteringSummary) { summaryVisibleCount = 10; summaryReturnPosition = null; }
+      if (enteringSummary) { summaryVisibleCount = 10; summaryReturnPosition = null; summaryMode = 'due'; summaryUndated = false; }
       renderSummary();
     }
   }
@@ -774,11 +777,40 @@
     return date;
   }
 
-  function summaryStatus(items, now = new Date()) {
-    const open = items.filter(item => item.financialStatus !== 'Pago');
-    if (!open.length) return ['Pago', 'paid'];
-    if (open.some(item => appointmentEnd(item) < now)) return ['Pendente', 'unpaid'];
-    return ['A receber', ''];
+  function financialAppointments() {
+    return state.appointments.filter(item => item.kind === 'appointment' && item.type !== 'Outro');
+  }
+
+  function isUnpaid(item) {
+    return (item.financialStatus || 'A receber') !== 'Pago';
+  }
+
+  function hasPaymentDate(item) {
+    const date = item.payment?.date;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date || '')) return false;
+    const parsed = parseDate(date);
+    return !Number.isNaN(parsed.getTime()) && isoDate(parsed) === date;
+  }
+
+  function summaryItems(mode = summaryMode, month = $('#summary-month').value, now = new Date(), undated = summaryUndated) {
+    return financialAppointments().filter(item => {
+      if (mode === 'due') return isUnpaid(item) && appointmentEnd(item) < now;
+      if (mode === 'received') return item.financialStatus === 'Pago' && (undated ? !hasPaymentDate(item) : hasPaymentDate(item) && item.payment.date.startsWith(month));
+      return item.date.startsWith(month) && appointmentEnd(item) >= now;
+    });
+  }
+
+  function summaryModeTitle() {
+    return { due: 'Para receber', received: 'Recebidos', upcoming: 'Próximas sessões' }[summaryMode];
+  }
+
+  function setSummaryMode(mode) {
+    if (!['due','received','upcoming'].includes(mode)) return;
+    summaryMode = mode;
+    summaryUndated = false;
+    summaryVisibleCount = 10;
+    summaryReturnPosition = null;
+    renderSummary();
   }
 
   function summaryClientKey(item) {
@@ -822,32 +854,36 @@
     $('#client-finance-detail').classList.add('hidden');
     const key = $('#summary-month').value || isoDate(new Date()).slice(0,7);
     $('#summary-month').value = key;
-    const items = state.appointments.filter(item => item.kind === 'appointment' && item.type !== 'Outro' && item.date.startsWith(key));
     const now = new Date();
-    const isEndedUnpaid = item => appointmentEnd(item) < now && (item.financialStatus === 'A receber' || item.financialStatus === 'Não pago');
-    const sum = filter => items.filter(filter).reduce((total,item) => total + Number(item.value || 0), 0);
-    const received = sum(item => item.financialStatus === 'Pago');
-    const receivable = sum(isEndedUnpaid);
-    const predicted = sum(() => true);
+    const items = summaryItems(summaryMode, key, now);
+    const monthLabel = parseDate(`${key}-01`).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
     const cards = [
-      ['Recebido',received,'var(--accent-strong)','Sessões pagas do mês'],['Pendente',receivable,'var(--amber)','Sessões encerradas sem pagamento'],['Total previsto',predicted,'var(--lilac)','Todos os atendimentos do mês']
+      ['due','Para receber','Todos os meses'],['received','Recebidos',monthLabel],['upcoming','Próximas sessões',monthLabel]
     ];
-    $('#finance-cards').innerHTML = cards.map(([label,value,color,description]) => `<article class="finance-card" style="--card-color:${color}"><span>${label}</span><strong>${summaryMoney(value)}</strong><small class="finance-description">${description}</small><i></i></article>`).join('');
-    const monthDate = parseDate(`${key}-01`);
+    $('#finance-cards').innerHTML = cards.map(([mode,label,description]) => {
+      const entries = summaryItems(mode, key, now, false);
+      const value = entries.reduce((sum,item) => sum + Number(item.value || 0), 0);
+      return `<button id="finance-${mode}" class="finance-action ${summaryMode === mode ? 'active' : ''}" data-summary-mode="${mode}" type="button" role="tab" tabindex="${summaryMode === mode ? '0' : '-1'}" aria-selected="${summaryMode === mode}" aria-controls="summary-results"><span>${label}</span><strong>${summaryMoney(value)}</strong><small>${description}</small></button>`;
+    }).join('');
+    $('#summary-month-picker').classList.toggle('hidden', summaryMode === 'due' || summaryUndated);
+    $('#summary-results').setAttribute('aria-labelledby', `finance-${summaryMode}`);
+    const descriptions = { due: 'Sessões encerradas sem pagamento, de todos os meses.', received: summaryUndated ? 'Pagamentos antigos sem data, fora dos totais mensais. Abra o cliente para conferir ou completar os detalhes.' : `Pagamentos recebidos em ${monthLabel}, pela data do pagamento.`, upcoming: `Sessões futuras ou em andamento de ${monthLabel}, incluindo as já pagas.` };
+    $('#summary-description').textContent = descriptions[summaryMode];
+    const undatedCount = financialAppointments().filter(item => item.financialStatus === 'Pago' && !hasPaymentDate(item)).length;
+    $('#undated-payments').classList.toggle('hidden', summaryMode !== 'received' || !undatedCount);
+    $('#undated-payments').textContent = summaryUndated ? 'Voltar aos recebidos do mês' : `Ver ${undatedCount} pagamento${undatedCount === 1 ? '' : 's'} sem data`;
+    $('#summary-empty-context').textContent = summaryUndated ? 'Sem data informada' : summaryModeTitle();
     const groups = new Map();
     items.forEach(item => {
       const key = summaryClientKey(item);
       if (!groups.has(key)) groups.set(key, { key, id: item.clientId || '', name: item.clientName, items: [] });
       groups.get(key).items.push(item);
     });
-    const statusPriority = { Pendente: 0, 'A receber': 1, Pago: 2 };
-    const clients = [...groups.values()].map(group => {
-      const [status, statusClass] = summaryStatus(group.items, now);
-      return { ...group, status, statusClass };
-    }).sort((a,b) => statusPriority[a.status] - statusPriority[b.status] || a.name.localeCompare(b.name, 'pt-BR'));
-    $('#summary-list-title').textContent = `${clients.length} cliente${clients.length === 1 ? '' : 's'} em ${months[monthDate.getMonth()]}`;
+    const clients = [...groups.values()].sort((a,b) => a.name.localeCompare(b.name, 'pt-BR'));
+    $('#summary-list-title').textContent = `${clients.length} cliente${clients.length === 1 ? '' : 's'} · ${items.length} ${items.length === 1 ? 'sessão' : 'sessões'}`;
     if (!items.length) {
-      $('#summary-list').innerHTML = '<div class="empty-state" style="min-height:260px"><div><span class="empty-icon">◔</span><h3>Nenhum movimento neste mês</h3><p>Os valores dos atendimentos aparecerão aqui conforme você agenda.</p></div></div>'; return;
+      const empty = summaryMode === 'due' ? ['Tudo em dia','Nenhuma sessão encerrada aguarda pagamento.'] : summaryMode === 'received' ? ['Nenhum pagamento encontrado',summaryUndated ? 'Todos os pagamentos têm uma data registrada.' : 'Escolha outro mês ou confira os pagamentos sem data.'] : ['Nenhuma próxima sessão','Escolha outro mês ou adicione um atendimento na Agenda.'];
+      $('#summary-list').innerHTML = `<div class="empty-state finance-empty"><div><h3>${empty[0]}</h3><p>${empty[1]}</p></div></div>`; return;
     }
     const returnIndex = clients.findIndex(group => group.key === returnClientKey);
     if (returnIndex >= 0) summaryVisibleCount = Math.max(summaryVisibleCount, Math.ceil((returnIndex + 1) / 10) * 10);
@@ -855,12 +891,13 @@
     const remaining = Math.max(0, clients.length - visibleClients.length);
     $('#summary-list').innerHTML = visibleClients.map(group => {
       const total = group.items.reduce((sum,item) => sum + Number(item.value || 0), 0);
-      const ended = group.items.filter(item => appointmentEnd(item) < now);
-      const paidCount = ended.filter(item => item.financialStatus === 'Pago').length;
-      const unpaidCount = ended.filter(isEndedUnpaid).length;
-      const sessionCounts = ended.length ? `${paidCount}/${ended.length} pagas · ${unpaidCount}/${ended.length} não pagas` : 'Nenhuma sessão encerrada';
-      const pending = group.items.filter(isEndedUnpaid).reduce((sum,item) => sum + Number(item.value || 0), 0);
-      return `<button class="summary-row summary-client-row" data-summary-client="${escapeHTML(group.key)}" type="button"><span class="summary-client-name"><strong>${escapeHTML(group.name)}</strong><small>${sessionCounts}</small></span><span class="status-chip ${group.statusClass}">${group.status}</span><span class="summary-amounts"><strong>Pendente: ${summaryMoney(pending)}</strong><small>Total do mês: ${summaryMoney(total)}</small></span><span class="row-arrow">›</span></button>`;
+      const ended = financialAppointments().filter(item => summaryClientKey(item) === group.key && appointmentEnd(item) < now);
+      const paidCount = ended.filter(item => !isUnpaid(item)).length;
+      const unpaidCount = ended.length - paidCount;
+      const prepaid = group.items.filter(item => !isUnpaid(item)).length;
+      const sessionCounts = summaryMode === 'due' ? `${paidCount} pagas · ${unpaidCount} sem pagamento` : summaryMode === 'received' ? `${group.items.length} ${group.items.length === 1 ? 'sessão paga' : 'sessões pagas'}` : `${group.items.length} ${group.items.length === 1 ? 'sessão agendada' : 'sessões agendadas'} · ${prepaid} já ${prepaid === 1 ? 'paga' : 'pagas'}`;
+      const amountLabel = { due: 'Falta receber', received: 'Recebido', upcoming: 'Valor das sessões' }[summaryMode];
+      return `<button class="summary-row summary-client-row finance-client-row" data-summary-client="${escapeHTML(group.key)}" type="button"><span class="summary-client-name"><strong>${escapeHTML(group.name)}</strong><small>${sessionCounts}</small></span><span class="summary-amounts"><strong>${summaryMoney(total)}</strong><small>${amountLabel}</small></span><span class="row-arrow">›</span></button>`;
     }).join('') + (remaining ? `<div class="summary-more-wrap"><button class="summary-more-button" data-summary-more type="button">Mostrar mais 10 <span>${remaining} restante${remaining === 1 ? '' : 's'}</span></button></div>` : '');
   }
 
@@ -881,9 +918,10 @@
     const checked = paymentSelection.has(item.id);
     const date = parseDate(item.date).toLocaleDateString('pt-BR', { weekday:'short', day:'2-digit', month:'short', year:'numeric' });
     const statusClass = item.financialStatus === 'Pago' ? 'paid' : item.financialStatus === 'Não pago' ? 'unpaid' : '';
+    const paymentInfo = item.financialStatus === 'Pago' ? `<small class="payment-line">Recebido ${hasPaymentDate(item) ? `em ${escapeHTML(formatShortDate(item.payment.date))}` : 'sem data informada'} · ${escapeHTML(paymentMethodLabel(item.payment) || 'Forma não informada')}</small>` : '';
     return `<div class="finance-appointment-row selectable">
       <span class="payment-check"><input type="checkbox" data-payment-id="${item.id}" ${checked ? 'checked' : ''} aria-label="Selecionar atendimento de ${escapeHTML(date)}"></span>
-      <button class="appointment-date appointment-date-button" data-appointment-date-id="${item.id}" type="button" aria-label="Selecionar ${escapeHTML(date)}; toque duas vezes para abrir o atendimento na Agenda"><strong>${escapeHTML(date)}</strong><small>${escapeHTML(item.start)}–${escapeHTML(item.end)}</small></button>
+      <button class="appointment-date appointment-date-button" data-appointment-date-id="${item.id}" type="button" aria-label="Selecionar ${escapeHTML(date)}; toque duas vezes para abrir o atendimento na Agenda"><strong>${escapeHTML(date)}</strong><small>${escapeHTML(item.start)}–${escapeHTML(item.end)}</small>${paymentInfo}</button>
       <span class="status-chip ${statusClass}">${escapeHTML(item.financialStatus || 'A receber')}</span>
       <strong class="appointment-value">${summaryMoney(item.value)}</strong>
     </div>`;
@@ -892,16 +930,22 @@
   function renderClientFinanceDetail() {
     if (!summaryClient) return renderSummary();
     const now = new Date();
-    const appointments = selectedClientAppointments();
-    const past = appointments.filter(item => appointmentEnd(item) < now).sort((a,b) => appointmentEnd(b) - appointmentEnd(a));
-    const future = appointments.filter(item => appointmentEnd(item) >= now).sort((a,b) => appointmentEnd(a) - appointmentEnd(b));
+    const all = selectedClientAppointments();
+    const appointments = summaryDetailAll ? all : summaryItems().filter(item => clientMatchesAppointment(summaryClient,item));
+    const past = summaryDetailAll ? appointments.filter(item => appointmentEnd(item) < now).sort((a,b) => appointmentEnd(b) - appointmentEnd(a)) : summaryMode === 'upcoming' ? [] : [...appointments].sort((a,b) => summaryMode === 'received' ? (b.payment?.date || '').localeCompare(a.payment?.date || '') || appointmentEnd(b) - appointmentEnd(a) : appointmentEnd(a) - appointmentEnd(b));
+    const future = summaryDetailAll ? appointments.filter(item => appointmentEnd(item) >= now).sort((a,b) => appointmentEnd(a) - appointmentEnd(b)) : summaryMode === 'upcoming' ? [...appointments].sort((a,b) => appointmentEnd(a) - appointmentEnd(b)) : [];
     const validIds = new Set(appointments.map(item => item.id));
     [...paymentSelection].forEach(id => { if (!validIds.has(id)) paymentSelection.delete(id); });
     $('#detail-client-name').textContent = summaryClient.name;
-    $('#detail-client-subtitle').textContent = `${appointments.length} atendimento${appointments.length === 1 ? '' : 's'} no histórico completo`;
+    $('#detail-client-subtitle').textContent = `${appointments.length} ${appointments.length === 1 ? 'sessão' : 'sessões'} · ${summaryDetailAll ? 'Histórico completo' : summaryUndated ? 'Pagamentos sem data' : summaryModeTitle()}`;
+    $('#detail-history-toggle').textContent = summaryDetailAll ? `Voltar a ${summaryModeTitle().toLocaleLowerCase('pt-BR')}` : 'Ver histórico completo';
+    $('#detail-history-toggle').setAttribute('aria-pressed', String(summaryDetailAll));
+    $('#detail-past-title').textContent = summaryDetailAll ? 'Atendimentos passados' : summaryMode === 'due' ? 'Sessões sem pagamento' : 'Pagamentos recebidos';
+    $('#detail-past-section').classList.toggle('hidden', !summaryDetailAll && summaryMode === 'upcoming');
+    $('#detail-future-section').classList.toggle('hidden', !summaryDetailAll && summaryMode !== 'upcoming');
     $('#past-count').textContent = `${past.length} ${past.length === 1 ? 'sessão' : 'sessões'}`;
     $('#future-count').textContent = `${future.length} ${future.length === 1 ? 'sessão' : 'sessões'}`;
-    $('#past-appointments').innerHTML = past.length ? past.map(item => financeAppointmentRow(item, true)).join('') : '<p class="section-empty">Nenhum atendimento passado.</p>';
+    $('#past-appointments').innerHTML = past.length ? past.map(item => financeAppointmentRow(item, true)).join('') : `<p class="section-empty">${summaryDetailAll ? 'Nenhum atendimento passado.' : summaryMode === 'due' ? 'Nenhuma sessão sem pagamento. Tudo em dia!' : 'Nenhum pagamento nesta visão.'}</p>`;
     $('#future-appointments').innerHTML = future.length ? future.map(item => financeAppointmentRow(item, false)).join('') : '<p class="section-empty">Nenhum atendimento futuro.</p>';
     updatePaymentBar();
   }
@@ -912,10 +956,11 @@
     if (!sample) return;
     const row = $$('[data-summary-client]').find(button => button.dataset.summaryClient === key);
     summaryReturnPosition = {
-      key, month: $('#summary-month').value, visibleCount: summaryVisibleCount,
+      key, month: $('#summary-month').value, mode: summaryMode, undated: summaryUndated, visibleCount: summaryVisibleCount,
       scrollY: window.scrollY, rowTop: row?.getBoundingClientRect().top ?? 0
     };
     summaryClient = { id: sample.clientId || '', name: sample.clientName };
+    summaryDetailAll = false;
     paymentSelection.clear();
     $('#summary-overview').classList.add('hidden');
     $('#client-finance-detail').classList.remove('hidden');
@@ -931,6 +976,8 @@
     }
     if (position) {
       $('#summary-month').value = position.month;
+      summaryMode = position.mode || 'due';
+      summaryUndated = Boolean(position.undated);
       summaryVisibleCount = Math.max(summaryVisibleCount, position.visibleCount);
     }
     renderSummary(position?.key);
@@ -1097,6 +1144,21 @@
     $('#client-search').addEventListener('input', renderClients);
     $('#delete-client').addEventListener('click', deleteClient);
     $('#summary-month').addEventListener('change', () => { summaryVisibleCount = 10; summaryReturnPosition = null; renderSummary(); });
+    $('#finance-cards').addEventListener('click', event => {
+      const button = event.target.closest('[data-summary-mode]');
+      if (button) { const mode = button.dataset.summaryMode; setSummaryMode(mode); $(`#finance-${mode}`).focus({ preventScroll: true }); }
+    });
+    $('#finance-cards').addEventListener('keydown', event => {
+      if (!['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) return;
+      const modes = ['due','received','upcoming'];
+      const index = modes.indexOf(event.target.closest('[data-summary-mode]')?.dataset.summaryMode);
+      if (index < 0) return;
+      event.preventDefault();
+      const next = event.key === 'Home' ? 0 : event.key === 'End' ? 2 : (index + (event.key === 'ArrowRight' ? 1 : -1) + 3) % 3;
+      setSummaryMode(modes[next]); $(`#finance-${modes[next]}`).focus({ preventScroll: true });
+    });
+    $('#undated-payments').addEventListener('click', () => { summaryUndated = !summaryUndated; summaryVisibleCount = 10; summaryReturnPosition = null; renderSummary(); });
+    $('#detail-history-toggle').addEventListener('click', () => { summaryDetailAll = !summaryDetailAll; paymentSelection.clear(); renderClientFinanceDetail(); });
     $('#summary-list').addEventListener('click', event => {
       const moreButton = event.target.closest('[data-summary-more]');
       if (moreButton) { summaryVisibleCount += 10; renderSummary(); return; }
