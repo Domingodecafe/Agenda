@@ -823,12 +823,14 @@
     const key = $('#summary-month').value || isoDate(new Date()).slice(0,7);
     $('#summary-month').value = key;
     const items = state.appointments.filter(item => item.kind === 'appointment' && item.type !== 'Outro' && item.date.startsWith(key));
+    const now = new Date();
+    const isEndedUnpaid = item => appointmentEnd(item) < now && (item.financialStatus === 'A receber' || item.financialStatus === 'Não pago');
     const sum = filter => items.filter(filter).reduce((total,item) => total + Number(item.value || 0), 0);
     const received = sum(item => item.financialStatus === 'Pago');
-    const receivable = sum(item => item.financialStatus === 'A receber' || item.financialStatus === 'Não pago');
-    const predicted = received + receivable;
+    const receivable = sum(isEndedUnpaid);
+    const predicted = sum(() => true);
     const cards = [
-      ['Recebido',received,'var(--accent-strong)','Sessões pagas do mês'],['Pendente',receivable,'var(--amber)','A receber + Não pago'],['Total previsto',predicted,'var(--lilac)','Recebido + Pendente']
+      ['Recebido',received,'var(--accent-strong)','Sessões pagas do mês'],['Pendente',receivable,'var(--amber)','Sessões encerradas sem pagamento'],['Total previsto',predicted,'var(--lilac)','Todos os atendimentos do mês']
     ];
     $('#finance-cards').innerHTML = cards.map(([label,value,color,description]) => `<article class="finance-card" style="--card-color:${color}"><span>${label}</span><strong>${summaryMoney(value)}</strong><small class="finance-description">${description}</small><i></i></article>`).join('');
     const monthDate = parseDate(`${key}-01`);
@@ -838,7 +840,6 @@
       if (!groups.has(key)) groups.set(key, { key, id: item.clientId || '', name: item.clientName, items: [] });
       groups.get(key).items.push(item);
     });
-    const now = new Date();
     const statusPriority = { Pendente: 0, 'A receber': 1, Pago: 2 };
     const clients = [...groups.values()].map(group => {
       const [status, statusClass] = summaryStatus(group.items, now);
@@ -854,9 +855,12 @@
     const remaining = Math.max(0, clients.length - visibleClients.length);
     $('#summary-list').innerHTML = visibleClients.map(group => {
       const total = group.items.reduce((sum,item) => sum + Number(item.value || 0), 0);
-      const paidCount = group.items.filter(item => item.financialStatus === 'Pago').length;
-      const pending = group.items.filter(item => item.financialStatus === 'A receber' || item.financialStatus === 'Não pago').reduce((sum,item) => sum + Number(item.value || 0), 0);
-      return `<button class="summary-row summary-client-row" data-summary-client="${escapeHTML(group.key)}" type="button"><span class="summary-client-name"><strong>${escapeHTML(group.name)}</strong><small>${paidCount} de ${group.items.length} sessões pagas</small></span><span class="status-chip ${group.statusClass}">${group.status}</span><span class="summary-amounts"><strong>Pendente: ${summaryMoney(pending)}</strong><small>Total do mês: ${summaryMoney(total)}</small></span><span class="row-arrow">›</span></button>`;
+      const ended = group.items.filter(item => appointmentEnd(item) < now);
+      const paidCount = ended.filter(item => item.financialStatus === 'Pago').length;
+      const unpaidCount = ended.filter(isEndedUnpaid).length;
+      const sessionCounts = ended.length ? `${paidCount}/${ended.length} pagas · ${unpaidCount}/${ended.length} não pagas` : 'Nenhuma sessão encerrada';
+      const pending = group.items.filter(isEndedUnpaid).reduce((sum,item) => sum + Number(item.value || 0), 0);
+      return `<button class="summary-row summary-client-row" data-summary-client="${escapeHTML(group.key)}" type="button"><span class="summary-client-name"><strong>${escapeHTML(group.name)}</strong><small>${sessionCounts}</small></span><span class="status-chip ${group.statusClass}">${group.status}</span><span class="summary-amounts"><strong>Pendente: ${summaryMoney(pending)}</strong><small>Total do mês: ${summaryMoney(total)}</small></span><span class="row-arrow">›</span></button>`;
     }).join('') + (remaining ? `<div class="summary-more-wrap"><button class="summary-more-button" data-summary-more type="button">Mostrar mais 10 <span>${remaining} restante${remaining === 1 ? '' : 's'}</span></button></div>` : '');
   }
 
