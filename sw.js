@@ -1,5 +1,6 @@
-const CACHE = 'agenda-1-0-v29';
-const FILES = ['./index.html','./styles.css?v=29','./app.js?v=29','./manifest.webmanifest','./icon.svg'];
+const CACHE = 'agenda-1-0-v30';
+// Keep the Financeiro views and their layout in the same offline version.
+const FILES = ['./index.html','./styles.css?v=30','./app.js?v=30','./manifest.webmanifest','./icon.svg'];
 const coreURLs = new Set(FILES.map(path => new URL(path, self.registration.scope).href));
 self.addEventListener('install', event => event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(FILES))));
 self.addEventListener('message', event => {
