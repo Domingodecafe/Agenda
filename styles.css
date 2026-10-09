@@ -264,3 +264,30 @@ body,button,input,select,textarea{font-family:system-ui,-apple-system,"Segoe UI"
 #new-client svg{width:18px;height:18px;flex-shrink:0}
 .summary-client-name{min-width:0}
 .summary-client-name small{white-space:normal;line-height:1.45;overflow-wrap:anywhere}
+
+/* Financeiro por ações — v30. */
+.finance-actions{grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.finance-action{display:flex;flex-direction:column;align-items:flex-start;gap:8px;min-width:0;min-height:130px;padding:18px;text-align:left;background:var(--surface);color:var(--text);border:1px solid var(--line2);border-radius:16px;transition:background .2s,border-color .2s}
+.finance-action>span{font-size:15px;font-weight:650}.finance-action>strong{font-size:26px;font-weight:750;overflow-wrap:anywhere}.finance-action>small{font-size:12px;color:var(--muted)}
+.finance-action.active{border:2px solid var(--accent);padding:17px;background:#20362b}.finance-action.active>span{color:var(--accent)}
+.finance-action:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
+.finance-view-description{font-size:14px;line-height:1.5;color:var(--muted);margin:0 0 18px}
+#undated-payments{margin:0 0 16px;padding:10px 12px;border:1px solid var(--line2);border-radius:10px;text-align:left}
+.finance-client-row{grid-template-columns:minmax(0,1fr) auto 16px}
+.finance-client-row .summary-amounts{text-align:right;flex-direction:column;align-items:flex-end;gap:4px}.finance-client-row .summary-amounts strong{font-size:17px}
+.finance-empty{min-height:190px}.finance-empty p{line-height:1.5}
+.finance-detail-tools{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:0 0 18px}
+.finance-detail-tools p{color:var(--muted);font-size:13px;line-height:1.5;margin:0}.finance-detail-tools button{flex-shrink:0}
+.payment-line{line-height:1.5;overflow-wrap:anywhere}
+@media(max-width:640px){
+  #summary-overview .finance-actions{grid-template-columns:repeat(3,minmax(0,1fr));padding:0 12px;gap:7px;margin-bottom:18px}
+  .finance-action{padding:12px 8px;min-height:126px;gap:8px;border-radius:12px}
+  .finance-action.active{padding:11px 7px}
+  .finance-action>span{font-size:12px;min-height:32px;line-height:1.35}.finance-action>strong{font-size:16px;letter-spacing:-.04em;line-height:1.3}.finance-action>small{font-size:10px;line-height:1.4}
+  .finance-view-description{margin:0 16px 16px;font-size:13px}#undated-payments{margin:0 16px 16px;max-width:calc(100% - 32px)}
+  #summary-results .panel-heading{align-items:center}.finance-client-row{grid-template-columns:minmax(0,1fr) auto 12px;padding:14px 12px;gap:8px}
+  .finance-client-row .summary-client-name{grid-column:1;grid-row:1}.finance-client-row .summary-amounts{grid-column:2;grid-row:1;gap:4px}.finance-client-row .row-arrow{grid-column:3;grid-row:1}
+  .finance-client-row .summary-client-name strong{font-size:15px}.finance-client-row .summary-client-name small{font-size:12px}
+  .finance-client-row .summary-amounts strong{font-size:15px}.finance-client-row .summary-amounts small{font-size:11px}
+  .finance-detail-tools{margin:0 16px 18px;flex-wrap:wrap;gap:10px}.finance-detail-tools button{font-size:13px}
+}
