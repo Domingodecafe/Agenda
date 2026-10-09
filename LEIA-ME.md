@@ -36,12 +36,13 @@ PWA responsiva para organizar atendimentos. Os dados são salvos somente no nave
 - Alteração financeira em lote para A receber, Pago ou Não pago, inclusive em sessões já pagas.
 - No celular, ações financeiras aparecem entre os atendimentos passados e futuros sem cobrir a navegação.
 - Um toque na data seleciona a sessão; dois toques abrem o atendimento na visão Dia da Agenda.
-- O Resumo apresenta Recebido, Pendente (A receber + Não pago) e Total previsto, pelo mês dos atendimentos.
-- Cada cliente mostra sessões pagas, valor pendente e total mensal.
+- O Resumo abre em Para receber: reúne todas as sessões encerradas sem pagamento, de qualquer mês, por cliente. A descrição usa frases como 3 pagas · 1 sem pagamento.
+- Recebidos mostra sessões pagas pela data do pagamento no mês escolhido, com data e forma nos detalhes. Registros antigos sem data ficam acessíveis separadamente, sem atribuir uma data fictícia nem incluí-los nos totais mensais.
+- Próximas sessões mostra sessões futuras ou em andamento do mês escolhido, inclusive antecipações, identificando as já pagas.
+- Tocar no cliente abre as sessões da visão escolhida; Ver histórico completo dá acesso a todos os atendimentos. Seleção e recebimento em lote permanecem disponíveis.
 - Os cabeçalhos da semana abrem a visão Dia, preservando a posição vertical.
-- A versão v29 aparece junto à marca; novas versões oferecem o botão Atualizar após baixar, sem descartar formulários abertos. A verificação ocorre ao abrir, retornar ao app ou recuperar a conexão.
-- O valor Pendente nas linhas e no cartão considera apenas sessões encerradas sem pagamento. A contagem pagas/não pagas considera somente sessões encerradas. Recebido inclui antecipações e Total previsto inclui todos os atendimentos financeiros do mês.
-- No Resumo, Pendente em vermelho indica ao menos uma sessão já encerrada sem pagamento. Se só houver sessões futuras ou em andamento em aberto, aparece A receber em cinza. Todas pagas aparecem como Pago em verde. A classificação é atualizada a cada minuto enquanto a lista estiver aberta.
+- A versão v30 aparece junto à marca; novas versões oferecem o botão Atualizar após baixar, sem descartar formulários abertos. A verificação ocorre ao abrir, retornar ao app ou recuperar a conexão.
+- As listas do Financeiro são atualizadas a cada minuto enquanto estiverem abertas. Bloqueios e compromissos Outro ficam fora de todas as visões.
 - O botão de olho no Resumo e no histórico oculta todos os valores dessas telas, inclusive o total selecionado. A preferência fica salva no aparelho; edição e confirmação de pagamento continuam mostrando os valores.
 - Pagamentos registram data, forma (PIX, Dinheiro ou Outro) e descrição opcional.
 - Pagamentos em lote são preenchidos sessão por sessão e gravados juntos após confirmação.
