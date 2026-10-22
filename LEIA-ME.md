@@ -1,5 +1,15 @@
 # Agenda
 
+> **Aula 3.6:** a Ana DEV agora oferece sincronização por ativação explícita,
+> com revisão, journal e recuperação de conflitos. Instruções e evidências em
+> [AULA-3.6-SINCRONIZACAO.md](AULA-3.6-SINCRONIZACAO.md). Uso exclusivamente fictício.
+
+> **Nesta branch: Ana DEV, somente dados fictícios.** Execute `node preview.mjs`
+> e use http://127.0.0.1:43188/ana-dev/. A Ana tem armazenamento, cache, worker e
+> identidade PWA separados. Não publique esta branch no endereço da Agenda
+> original. Consulte [ISOLAMENTO-ANA.md](ISOLAMENTO-ANA.md). As descrições abaixo
+> preservam a documentação da Agenda que serviu de base.
+
 PWA responsiva para organizar atendimentos. Os dados são salvos somente no navegador do dispositivo, usando IndexedDB e localStorage como alternativa.
 
 ## Como usar

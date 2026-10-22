@@ -1,9 +1,11 @@
 (() => {
   'use strict';
 
-  const DB_NAME = 'agenda-1-0-db';
-  const STORE = 'agenda';
-  const STATE_KEY = 'main';
+  const environment = window.AnaEnvironment;
+  if (!environment?.isAllowed()) return;
+  const DB_NAME = environment.database;
+  const STORE = environment.store;
+  const STATE_KEY = environment.stateKey;
   const HOURS_START = 8;
   const HOURS_END = 20;
   const weekdays = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'];
@@ -12,6 +14,9 @@
   const $$ = selector => [...document.querySelectorAll(selector)];
   const emptyState = { clients: [], appointments: [], settings: { view: 'week' } };
   let state = structuredClone(emptyState);
+  let syncMetadata = null;
+  let cloudInstalled = false;
+  let localWrites = Promise.resolve();
   let activeTab = 'agenda';
   let anchorDate = new Date();
   let deferredInstall = null;
@@ -58,6 +63,7 @@
 
   async function loadState() {
     try {
+      if (localStorage.getItem(environment.fallbackMarker) === 'active') throw new Error('Fallback Ana ativo');
       const db = await openDatabase();
       const value = await new Promise((resolve, reject) => {
         const request = db.transaction(STORE).objectStore(STORE).get(STATE_KEY);
@@ -68,8 +74,12 @@
       state = value || structuredClone(emptyState);
     } catch (error) {
       storageMode = 'localStorage';
-      try { state = JSON.parse(localStorage.getItem('agenda-1-0-state')) || structuredClone(emptyState); }
+      try { state = JSON.parse(localStorage.getItem(environment.fallbackKey)) || structuredClone(emptyState); }
       catch { state = structuredClone(emptyState); }
+    }
+    if (state.anaLocalVersion === 1) {
+      syncMetadata = state.sync;
+      state = state.state;
     }
     state.clients ||= [];
     state.appointments ||= [];
@@ -77,27 +87,38 @@
   }
 
   function saveState() {
-    const operation = persistState();
+    const snapshot = structuredClone(state);
+    const operation = cloudInstalled ? window.AnaCloud.localChanged(snapshot) : persistState(snapshot);
     pendingSaves.add(operation);
     operation.then(() => pendingSaves.delete(operation), () => pendingSaves.delete(operation));
     return operation;
   }
 
-  async function persistState() {
+  function persistState(snapshot = structuredClone(state), metadata = syncMetadata) {
+    const envelope = { anaLocalVersion: 1, state: structuredClone(snapshot), sync: structuredClone(metadata) };
+    syncMetadata = structuredClone(metadata);
+    const operation = localWrites.then(() => persistEnvelope(envelope));
+    localWrites = operation.catch(() => {});
+    return operation;
+  }
+
+  async function persistEnvelope(envelope) {
     try {
       if (storageMode === 'localStorage') throw new Error('fallback');
       const db = await openDatabase();
       await new Promise((resolve, reject) => {
         const transaction = db.transaction(STORE, 'readwrite');
-        transaction.objectStore(STORE).put(state, STATE_KEY);
+        transaction.objectStore(STORE).put(envelope, STATE_KEY);
         transaction.oncomplete = resolve;
         transaction.onabort = () => reject(transaction.error);
         transaction.onerror = () => reject(transaction.error);
       });
       db.close();
+      try { localStorage.removeItem(environment.fallbackMarker); } catch { /* O IndexedDB já foi confirmado. */ }
     } catch {
       storageMode = 'localStorage';
-      localStorage.setItem('agenda-1-0-state', JSON.stringify(state));
+      localStorage.setItem(environment.fallbackKey, JSON.stringify(envelope));
+      localStorage.setItem(environment.fallbackMarker, 'active');
     }
   }
 
@@ -1205,7 +1226,9 @@
   async function setupUpdates() {
     if (!('serviceWorker' in navigator)) return;
     try {
-      const registration = await navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' });
+      const registration = await navigator.serviceWorker.register('./sw-ana-dev.js', {
+        scope: environment.basePath, updateViaCache: 'none'
+      });
       let lastCheck = 0;
       const showUpdate = () => $('#update-notice').classList.toggle('hidden', !registration.waiting);
       const watchInstalling = () => {
@@ -1263,16 +1286,26 @@
     const blob = new Blob([data], { type: 'application/json' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = 'agenda-backup-' + stamp + '.json';
+    link.download = 'ana-dev-backup-' + stamp + '.json';
     link.click();
     setTimeout(() => URL.revokeObjectURL(link.href), 1000);
     showToast('Backup exportado. Armazene em local seguro.');
   }
 
-  init().then(() => {
+  init().then(async () => {
+    while (pendingSaves.size) await Promise.all([...pendingSaves]);
     if (window.AnaCloud) window.AnaCloud.install({
       getState: () => structuredClone(state),
+      getMetadata: () => structuredClone(syncMetadata),
+      persist: persistState,
+      replaceState: next => {
+        state = structuredClone(next);
+        paymentSelection.clear(); summaryClient = null;
+        $$('.segmented button').forEach(button => button.classList.toggle('active', button.dataset.view === state.settings.view));
+        renderCalendar(); setTab(activeTab); renderClients();
+      },
       downloadBackup: exportLocalBackup
     });
+    cloudInstalled = !!window.AnaCloud;
   });
 })();

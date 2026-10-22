@@ -291,3 +291,10 @@ body,button,input,select,textarea{font-family:system-ui,-apple-system,"Segoe UI"
   .finance-client-row .summary-amounts strong{font-size:15px}.finance-client-row .summary-amounts small{font-size:11px}
   .finance-detail-tools{margin:0 16px 18px;flex-wrap:wrap;gap:10px}.finance-detail-tools button{font-size:13px}
 }
+/* Indicador exclusivo da Ana DEV, integrado ao tema existente. */
+.ana-sync-badge {font-size:12px;color:#b9f6cb;border:1px solid #537864;border-radius:20px;padding:5px 9px;white-space:nowrap;}
+.ana-sync-badge[data-state="Conflito"],.ana-sync-badge[data-state="Erro"] {color:#fbbf24;border-color:#a98134;}
+.ana-cloud-dialog {max-width:560px;width:calc(100% - 24px);max-height:88vh;overflow:auto;padding:20px;border-radius:16px;}
+.ana-cloud-controls,.ana-source-choices {display:flex;flex-wrap:wrap;gap:8px;margin:14px 0;}
+.ana-source-choices p {width:100%;}
+.ana-cloud-dialog select {max-width:100%;margin:8px 0;}

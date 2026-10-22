@@ -4,20 +4,20 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#101416">
-  <meta name="description" content="Agenda de atendimentos privada, offline e salva no seu dispositivo.">
+  <meta name="description" content="Ana em desenvolvimento. Use exclusivamente dados fictícios.">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=30">
-  <title>Agenda</title>
+  <link rel="stylesheet" href="styles.css?v=ana-dev-5">
+  <title>Ana DEV — Agenda de testes</title>
 </head>
 <body>
   <div id="app" class="app-shell">
     <header class="topbar">
-      <div class="brand"><span class="brand-mark">A</span><h1>Agenda</h1><span class="app-version" aria-label="Versão em uso 30">v30</span></div>
+      <div class="brand"><span class="brand-mark">A</span><h1>Ana DEV</h1><span class="app-version" aria-label="Ambiente de desenvolvimento">DEV</span></div>
       <div class="header-actions">
         <button id="install-button" class="icon-button install-button hidden" type="button" title="Instalar aplicativo" aria-label="Instalar aplicativo">⇩</button>
         <button id="today-header" class="text-button" type="button">Hoje</button>
-        <span class="local-badge"><i></i> Salvo neste dispositivo</span>
+        <span class="local-badge"><i></i> TESTE · Somente dados fictícios</span>
       </div>
     </header>
 
@@ -102,6 +102,7 @@
           <button data-color="purple" type="button" aria-label="Roxo" aria-pressed="false"><i></i><b>Roxo</b></button>
           <button data-color="blue" type="button" aria-label="Azul" aria-pressed="false"><i></i><b>Azul</b></button>
         </div>
+        </div>
         <div id="edit-financial-field" class="hidden">
           <label class="field full"><span>Status financeiro</span><select id="financial-status"><option>A receber</option><option>Pago</option><option>Não pago</option></select></label>
           <div id="active-payment-card" class="active-payment-card hidden"><div><span>Pagamento registrado</span><strong id="active-payment-summary"></strong></div><div><button id="edit-payment" class="text-action" type="button">Editar pagamento</button><button id="view-payment-history" class="text-action" type="button">Ver histórico</button></div></div>
@@ -127,6 +128,7 @@
         <button data-color="purple" type="button" aria-label="Roxo" aria-pressed="false"><i></i><b>Roxo</b></button>
         <button data-color="blue" type="button" aria-label="Azul" aria-pressed="false"><i></i><b>Azul</b></button>
       </div>
+      </div>
       <div class="modal-actions"><button id="delete-client" class="danger-button hidden" type="button">Excluir</button><div><button class="secondary-button" type="button" data-close="client-dialog">Cancelar</button><button class="primary-button" type="submit">Salvar</button></div></div>
     </form>
   </dialog>
@@ -146,7 +148,9 @@
   </dialog>
   <dialog id="payment-history-dialog" class="modal small-modal payment-history-dialog"><form method="dialog"><div class="modal-header"><div><span class="eyebrow">AUDITORIA</span><h2>Histórico do pagamento</h2></div><button class="close-button" value="cancel" aria-label="Fechar">×</button></div><div id="payment-history-list" class="payment-history-list"></div><div class="modal-actions"><span></span><button class="primary-button" value="cancel">Fechar</button></div></form></dialog>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script src="cloud-sync.js?v=31" defer></script>
-  <script src="app.js?v=31" defer></script>
+  <script src="ana-environment.js?v=ana-dev-5" defer></script>
+  <script src="ana-sync-engine.js?v=ana-dev-5" defer></script>
+  <script src="cloud-sync.js?v=ana-dev-5" defer></script>
+  <script src="app.js?v=ana-dev-5" defer></script>
 </body>
 </html>

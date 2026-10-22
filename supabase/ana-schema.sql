@@ -7,10 +7,10 @@ create table if not exists public.agenda_snapshots (
   payload jsonb not null,
   updated_at timestamptz not null default now(),
   constraint agenda_payload_valid check (
-    jsonb_typeof(payload) = 'object'
-    and jsonb_typeof(payload->'clients') = 'array'
-    and jsonb_typeof(payload->'appointments') = 'array'
-    and jsonb_typeof(payload->'settings') = 'object'
+    jsonb_typeof(payload) is not distinct from 'object'
+    and jsonb_typeof(payload->'clients') is not distinct from 'array'
+    and jsonb_typeof(payload->'appointments') is not distinct from 'array'
+    and jsonb_typeof(payload->'settings') is not distinct from 'object'
   )
 );
 alter table public.agenda_snapshots enable row level security;
@@ -41,10 +41,10 @@ begin
     raise exception 'AUTENTICACAO_NECESSARIA';
   end if;
   if p_expected_revision is null or p_expected_revision < 0
-    or jsonb_typeof(p_payload) <> 'object'
-    or jsonb_typeof(p_payload->'clients') <> 'array'
-    or jsonb_typeof(p_payload->'appointments') <> 'array'
-    or jsonb_typeof(p_payload->'settings') <> 'object' then
+    or jsonb_typeof(p_payload) is distinct from 'object'
+    or jsonb_typeof(p_payload->'clients') is distinct from 'array'
+    or jsonb_typeof(p_payload->'appointments') is distinct from 'array'
+    or jsonb_typeof(p_payload->'settings') is distinct from 'object' then
     raise exception 'DADOS_INVALIDOS';
   end if;
   if p_expected_revision = 0 then

@@ -1,0 +1,88 @@
+{
+  "project": "dpdxzbbzymkygutwefww",
+  "startedRevision": 1,
+  "finishedRevision": 10,
+  "results": [
+    {
+      "label": "Criação de paciente",
+      "revision": 2,
+      "clients": 2,
+      "appointments": 1
+    },
+    {
+      "label": "Criação de atendimento",
+      "revision": 3,
+      "clients": 2,
+      "appointments": 2
+    },
+    {
+      "label": "Alteração de horário",
+      "revision": 4,
+      "clients": 2,
+      "appointments": 2
+    },
+    {
+      "label": "Cancelamento sem cobrança",
+      "revision": 5,
+      "clients": 2,
+      "appointments": 1
+    },
+    {
+      "label": "Criação de série recorrente",
+      "revision": 6,
+      "clients": 2,
+      "appointments": 4
+    },
+    {
+      "label": "Atualização de série recorrente",
+      "revision": 7,
+      "clients": 2,
+      "appointments": 4
+    },
+    {
+      "label": "Reabertura com consentimento renovado",
+      "revision": 7,
+      "clients": 2,
+      "appointments": 4
+    },
+    {
+      "label": "Recuperação por segunda sessão autenticada",
+      "revision": 7,
+      "clients": 2,
+      "appointments": 4
+    },
+    {
+      "label": "Queda/reconexão simulada com gravação real",
+      "revision": 8,
+      "clients": 2,
+      "appointments": 5,
+      "simulation": "online=false no motor; servidor permaneceu disponível"
+    },
+    {
+      "label": "Erro 503 simulado preserva dados e permite retomada real",
+      "revision": 9,
+      "clients": 2,
+      "appointments": 5
+    },
+    {
+      "label": "Conflito real entre duas sessões (mesma revisão, RPCs concorrentes)",
+      "revision": 10,
+      "winner": "Sincronizado",
+      "loser": "Conflito",
+      "losingDraftPreserved": true,
+      "clients": 2,
+      "appointments": 6
+    }
+  ],
+  "browserVerification": {
+    "finalRevision": 16,
+    "clients": 3,
+    "appointmentsAndBlocks": 7,
+    "patientCreatedAtRevision": 11,
+    "appointmentCreatedAtRevision": 12,
+    "rescheduledAtRevision": 13,
+    "cancelledAtRevision": 14,
+    "threeRecurrencesUpdatedAtRevision": 15,
+    "blockCreatedAfterHardeningAtRevision": 16
+  }
+}

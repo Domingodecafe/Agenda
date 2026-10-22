@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ana DEV — Verificação de isolamento</title>
+  <style>
+    body { background:#101416; color:#ecfdf5; font:16px/1.6 system-ui,sans-serif; max-width:900px; margin:40px auto; padding:20px; }
+    h1 { color:#b9f6cb; } li { margin:16px 0; overflow-wrap:anywhere; }
+    a { color:#b9f6cb; } strong { color:#fbbf24; }
+  </style>
+  <script src="ana-environment.js?v=ana-dev-5" defer></script>
+  <script src="verificar-isolamento.js" defer></script>
+</head>
+<body>
+  <h1>Ana DEV — Verificação de isolamento</h1>
+  <p>Somente metadados do ambiente de teste. Esta página não abre cadastros,
+    não remove armazenamento e não conecta ao Supabase.</p>
+  <p id="result" role="status">Verificando…</p>
+  <ul id="checks"></ul>
+  <p>Para verificar o cache e o worker, abra a Agenda de testes primeiro e depois
+    recarregue esta página. Dados da Agenda original não são migrados.</p>
+  <a href="./index.html">Abrir Ana DEV</a>
+</body>
+</html>

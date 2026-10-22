@@ -3,5 +3,7 @@
   <rect x="76" y="92" width="360" height="344" rx="72" fill="#b9f6cb"/>
   <path d="M160 68v76M352 68v76" stroke="#0d0f12" stroke-width="34" stroke-linecap="round"/>
   <path d="M142 222h228M142 302h94M276 302h94M142 370h94" stroke="#0d0f12" stroke-width="30" stroke-linecap="round"/>
+  <rect x="290" y="346" width="182" height="110" rx="30" fill="#fbbf24"/>
+  <text x="381" y="419" text-anchor="middle" font-family="sans-serif" font-size="60" font-weight="700" fill="#101416">DEV</text>
 </svg>
 
