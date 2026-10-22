@@ -1257,5 +1257,22 @@
     } catch { /* Offline or unavailable: keep the current version usable. */ }
   }
 
-  init();
+  function exportLocalBackup() {
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const data = JSON.stringify(state, null, 2);
+    const blob = new Blob([data], { type: 'application/json' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'agenda-backup-' + stamp + '.json';
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+    showToast('Backup exportado. Armazene em local seguro.');
+  }
+
+  init().then(() => {
+    if (window.AnaCloud) window.AnaCloud.install({
+      getState: () => structuredClone(state),
+      downloadBackup: exportLocalBackup
+    });
+  });
 })();
