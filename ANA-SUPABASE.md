@@ -1,5 +1,13 @@
 # Integração Ana + Supabase (preparação)
 
+## Aula 3.7 — API de leitura atual
+
+`consultar_disponibilidade` está implementada no Supabase DEV com autenticação
+obrigatória e projeção de horários dentro do banco, sem entregar snapshots a
+serviços externos. Consulte [AULA-3.7-DISPONIBILIDADE.md](AULA-3.7-DISPONIBILIDADE.md)
+para contrato, segurança, demonstração, testes e limites. Não há escrita de
+agendamentos por essa API nem conexão com n8n/IA/WhatsApp.
+
 ## Aula 3.6 — implementação atual
 
 Sincronização automática **opt-in** implementada na Ana DEV. Leia

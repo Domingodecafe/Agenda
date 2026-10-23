@@ -1,0 +1,54 @@
+{
+  "endpoint": "https://dpdxzbbzymkygutwefww.supabase.co/functions/v1/consultar_disponibilidade",
+  "checks": [
+    "Sem autenticação é recusado",
+    "Token forjado é recusado",
+    "Sexta fictícia ocupada 15–16 retorna somente horários livres",
+    "Bloqueios fictícios de sábado são respeitados",
+    "Domingo não possui atendimento",
+    "Período inclusivo e ocorrência recorrente posterior",
+    "Tentativa autenticada de escolher outro usuário é recusada",
+    "Método de escrita e parâmetros inválidos são recusados",
+    "Nenhum snapshot/revisão foi modificado pela API"
+  ],
+  "snapshotRevision": 16,
+  "demonstracao": {
+    "ambiente": "ana-dev",
+    "fuso_horario": "America/Sao_Paulo",
+    "duracao_minutos": 60,
+    "data_inicio": "2026-10-23",
+    "data_fim": "2026-10-23",
+    "revisao": 16,
+    "dias": [
+      {
+        "data": "2026-10-23",
+        "horarios": [
+          {
+            "inicio": "14:00",
+            "fim": "15:00",
+            "inicio_utc": "2026-10-23T17:00:00.000Z",
+            "fim_utc": "2026-10-23T18:00:00.000Z"
+          },
+          {
+            "inicio": "16:00",
+            "fim": "17:00",
+            "inicio_utc": "2026-10-23T19:00:00.000Z",
+            "fim_utc": "2026-10-23T20:00:00.000Z"
+          },
+          {
+            "inicio": "17:00",
+            "fim": "18:00",
+            "inicio_utc": "2026-10-23T20:00:00.000Z",
+            "fim_utc": "2026-10-23T21:00:00.000Z"
+          },
+          {
+            "inicio": "18:00",
+            "fim": "19:00",
+            "inicio_utc": "2026-10-23T21:00:00.000Z",
+            "fim_utc": "2026-10-23T22:00:00.000Z"
+          }
+        ]
+      }
+    ]
+  }
+}

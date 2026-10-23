@@ -1,5 +1,9 @@
 # Agenda
 
+> **Aula 3.7:** API autenticada e somente de leitura para disponibilidade no
+> Supabase DEV. Contrato e resultados em
+> [AULA-3.7-DISPONIBILIDADE.md](AULA-3.7-DISPONIBILIDADE.md). A PWA original não foi alterada.
+
 > **Aula 3.6:** a Ana DEV agora oferece sincronização por ativação explícita,
 > com revisão, journal e recuperação de conflitos. Instruções e evidências em
 > [AULA-3.6-SINCRONIZACAO.md](AULA-3.6-SINCRONIZACAO.md). Uso exclusivamente fictício.

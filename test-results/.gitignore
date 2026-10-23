@@ -1,3 +1,4 @@
 # Cópias de recuperação ficam apenas neste computador; versionar só o relatório agregado.
 *.json
 !aula36-integracao.json
+!aula37-disponibilidade.json

@@ -1,0 +1,4 @@
+project_id = "dpdxzbbzymkygutwefww"
+
+[functions.consultar_disponibilidade]
+verify_jwt = true
