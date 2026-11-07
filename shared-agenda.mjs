@@ -4,6 +4,7 @@ import './fin-core.js';
 import './agent-chat.js';
 import { createFixture } from './hosted-fixture.mjs';
 import { prepareSeries, prepareChange } from './ana-agenda-actions.mjs';
+import { prepareBulkRemoval } from './ana-bulk-removal.mjs';
 
 export class AgendaConflict extends Error {}
 
@@ -86,15 +87,15 @@ export function createSharedAgenda(store, { now = () => new Date() } = {}) {
     return { revision: await store.write(revision, state), state };
   }
 
-  async function modify(prepare) {
+  async function modify(prepare, filters) {
     for (let attempt = 0; attempt < 3; attempt++) {
       const { state, revision } = await read();
-      const { state: next, removal, ...result } = prepare(state);
+      const { state: next, removal, ...result } = prepare(state, revision);
       if (removal) {
         for (const [id, plan] of confirmations) if (plan.expires <= Date.now()) confirmations.delete(id);
         if (confirmations.size >= 32) confirmations.delete(confirmations.keys().next().value);
         const token = randomUUID();
-        confirmations.set(token, { revision, ids: new Set(removal), expires: Date.now() + 300000 });
+        confirmations.set(token, { revision, ids: new Set(removal), filters, expires: Date.now() + 300000 });
         return { ...result, confirmation: token };
       }
       if (!next) return result;
@@ -115,6 +116,24 @@ export function createSharedAgenda(store, { now = () => new Date() } = {}) {
     },
     book: request => modify(state => prepareSeries(state, request, now())),
     change: request => modify(state => prepareChange(state, request, now())),
+    bulkRemoval: filters => modify(state => prepareBulkRemoval(state, filters), filters),
+    async continueRemoval(token, recurringOnly) {
+      const plan = confirmations.get(token);
+      if (!plan || plan.expires <= Date.now()) {
+        confirmations.delete(token);
+        return { reply: 'A revisão expirou. Peça a exclusão novamente.', discardConfirmation: true };
+      }
+      if ((await read()).revision !== plan.revision) {
+        confirmations.delete(token);
+        return { reply: 'A Agenda mudou desde a revisão. Peça a exclusão novamente.', discardConfirmation: true };
+      }
+      if (!recurringOnly || !plan.filters) return { reply: 'Toque em Confirmar exclusão no cartão acima.', showConfirmation: true };
+      confirmations.delete(token);
+      const filters = { ...plan.filters, recurrence: 'series' };
+      const result = await modify((state, revision) => revision === plan.revision ?
+        prepareBulkRemoval(state, filters, plan.ids) : { reply: 'A Agenda mudou. Peça a exclusão novamente.' }, filters);
+      return { ...result, discardConfirmation: true };
+    },
     async confirmRemoval(token) {
       const plan = confirmations.get(token);
       confirmations.delete(token);

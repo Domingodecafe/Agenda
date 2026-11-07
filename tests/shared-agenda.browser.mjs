@@ -16,6 +16,7 @@ Object.assign(process.env, {
 
 let snapshot;
 let lightweightReads = 0;
+let modelRequests = 0;
 const toolCall = (name, args) => ({ type: 'function_call', name, arguments: JSON.stringify(args), call_id: 'call_fixture' });
 const complete = output => Response.json({ status: 'completed', output: [output] });
 globalThis.fetch = async (target, options) => {
@@ -37,6 +38,7 @@ globalThis.fetch = async (target, options) => {
     return Response.json(snapshot ? [snapshot] : []);
   }
   assert.equal(url.hostname, 'api.openai.com');
+  modelRequests++;
   const { input } = JSON.parse(options.body);
   const last = input.at(-1);
   if (last.type === 'function_call_output') {
@@ -180,6 +182,17 @@ try {
   await confirm.click();
   await winner.getByText('2 atendimentos apagados da Agenda.').waitFor();
   assert.equal(snapshot.payload.appointments.length, 84);
+  const modelBeforeBatch = modelRequests;
+  await ask(winner, 'Apague os atendimentos não pagos de novembro de 2026');
+  await winner.getByText('67 atendimentos · 0 com pagamento registrado').waitFor();
+  const versionBeforeYes = snapshot.revision;
+  await ask(winner, 'Sim');
+  await winner.getByText('Toque em Confirmar exclusão no cartão acima.').waitFor();
+  assert.equal(snapshot.revision, versionBeforeYes);
+  assert.equal(modelRequests, modelBeforeBatch);
+  await winner.getByRole('button', { name: 'Confirmar exclusão' }).click();
+  await winner.getByText('67 atendimentos apagados da Agenda.').waitFor();
+  assert.equal(snapshot.payload.appointments.length, 17);
   await winner.context().clearCookies();
   await ask(winner, 'Consultar sessão expirada');
   await winner.getByText('Entrar novamente em outra aba').waitFor();

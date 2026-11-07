@@ -109,7 +109,7 @@
       const name = selected === 'ana' ? 'Ana' : 'Fin';
       log.setAttribute('aria-label', 'Conversa com ' + name);
       log.replaceChildren(...thread.messages.map(message => {
-        const { role, content, details, appointment, confirmation } = message;
+        const { role, content, details, appointment, confirmation, review } = message;
         const entry = document.createElement('div');
         entry.className = 'agent-chat-message';
         entry.dataset.role = role;
@@ -122,6 +122,23 @@
           const facts = document.createElement('small');
           facts.textContent = details;
           entry.append(facts);
+        }
+        if (review) {
+          const scope = document.createElement('p');
+          scope.textContent = review.scope;
+          const list = document.createElement('details');
+          list.className = 'agent-chat-review';
+          list.open = review.items.length <= 8;
+          const summary = document.createElement('summary');
+          summary.textContent = `${review.items.length} ${review.items.length === 1 ? 'atendimento' : 'atendimentos'} · ${review.paid} com pagamento registrado`;
+          const items = document.createElement('ul');
+          for (const text of review.items) {
+            const item = document.createElement('li');
+            item.textContent = text;
+            items.append(item);
+          }
+          list.append(summary, items);
+          entry.append(scope, list);
         }
         if (appointment && openAppointment) {
           const go = document.createElement('button');
@@ -136,6 +153,7 @@
           entry.append(go);
         }
         if (confirmation) {
+          entry.dataset.pendingRemoval = '';
           const confirm = document.createElement('button');
           confirm.type = 'button';
           confirm.className = 'danger-button';
@@ -232,7 +250,8 @@
       thread.expired = false;
       render();
       try {
-        let response = await send({ agent, message, history });
+        const pendingRemoval = thread.messages.findLast(item => item.confirmation)?.confirmation;
+        let response = await send({ agent, message, history, pendingRemoval });
         let details = response.details;
         if (response.consultation) {
           details = describe(agent, response.consultation.period, response.consultation.result);
@@ -248,12 +267,19 @@
           details = describe(agent, response.period, result);
           response = await send({ id: response.id, result });
         }
+        if (!response.showConfirmation || response.discardConfirmation) {
+          for (const item of thread.messages) item.confirmation = null;
+        }
         thread.messages.push({ role: 'user', content: message }, {
-          role: 'assistant', content: response.reply, details, appointment: response.appointment, confirmation: response.confirmation,
+          role: 'assistant', content: response.reply, details, appointment: response.appointment,
+          confirmation: response.confirmation, review: response.review,
         });
         thread.draft = '';
         thread.status = '';
         if (response.changed || response.appointment) await refresh?.();
+        if (response.showConfirmation && selected === agent) {
+          requestAnimationFrame(() => log.querySelector('[data-pending-removal] button')?.scrollIntoView({ block: 'nearest' }));
+        }
       } catch (error) {
         thread.status = error.message;
         thread.expired = error.status === 401;

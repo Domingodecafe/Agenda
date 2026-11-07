@@ -51,6 +51,10 @@
 .agent-chat-message[data-role="user"] { align-self: flex-end; background: var(--surface-2, var(--surface)); }
 .agent-chat-message small { display: block; color: var(--accent); }
 .agent-chat-message button { margin-top: 10px; }
+.agent-chat-review { font-size: .88rem; margin-block: 6px; }
+.agent-chat-review summary { cursor: pointer; font-weight: 650; }
+.agent-chat-review ul { margin-block: 8px; padding-inline-start: 20px; }
+.agent-chat-review li { margin-block: 4px; }
 #agent-chat-form { display: flex; flex-shrink: 0; align-items: flex-end; gap: 8px; padding: 8px 0 0; border-top: 1px solid var(--line); }
 #agent-chat-form .field { flex: 1; min-width: 0; margin: 0; }
 #agent-chat-message { font-size: 16px; }

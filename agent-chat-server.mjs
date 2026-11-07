@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { directRemoval, validRemovalFilters } from './ana-bulk-removal.mjs';
 
 const tools = {
   ana: { name: 'consultar_horarios', field: 'data', format: 'AAAA-MM-DD', description: 'Consulta horários livres para um dia.' },
@@ -52,6 +53,22 @@ const changeTool = {
   description: 'Edita, remarca, cancela ou prepara a exclusão de atendimentos existentes.',
   parameters: { type: 'object', additionalProperties: false, properties: changeFields, required: Object.keys(changeFields) },
 };
+const bulkFields = {
+  names: { type: ['array', 'null'], items: { type: 'string' }, description: 'Nomes dos clientes citados. Null para todos.' },
+  from: nullableText('Data inicial inclusiva AAAA-MM-DD. Null se não houver período.'),
+  through: nullableText('Data final inclusiva AAAA-MM-DD. Null se não houver período.'),
+  weekdays: { type: ['array', 'null'], items: { type: 'integer' }, description: 'Dias da semana de 0 (domingo) a 6 (sábado).' },
+  start: nullableText('Hora inicial ou exata HH:MM.'),
+  throughTime: nullableText('Hora final inclusiva HH:MM para intervalo.'),
+  recurrence: { type: ['string', 'null'], enum: ['series', 'single', 'weekly', 'biweekly', 'monthly', null] },
+  payment: { type: ['string', 'null'], enum: ['paid', 'unpaid', 'not_paid', null] },
+};
+const bulkTool = {
+  type: 'function', name: 'revisar_exclusao_em_lote', strict: true,
+  description: 'Monta o cartão de revisão para um pedido explícito de apagar vários atendimentos, combinando os filtros solicitados.',
+  parameters: { type: 'object', additionalProperties: false, properties: bulkFields, required: Object.keys(bulkFields) },
+};
+const tokenPattern = /^[0-9a-f-]{36}$/;
 const validDate = value => /^\d{4}-\d{2}-\d{2}$/.test(value) &&
   Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value;
 const validText = (value, max) => typeof value === 'string' && value.length <= max && value.trim().length > 0;
@@ -151,6 +168,15 @@ export function createAgentChat({ origin, apiKey, model, fetchResponse = fetch, 
     const dateFormat = new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/Sao_Paulo', dateStyle: 'short' });
     const today = dateFormat.format(now);
     const tomorrow = dateFormat.format(new Date(now.getTime() + 86400000));
+    if (agenda && agent === 'ana') {
+      const filters = directRemoval(message, today);
+      if (filters) return agenda.bulkRemoval(filters);
+      const short = message.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().trim().replace(/[.!]+$/, '');
+      const recurringOnly = /^(?:sim[ ,]+)?(?:apague |exclua )?(?:a |as )?series? inteiras?$/.test(short);
+      if (tokenPattern.test(body.pendingRemoval || '') && (recurringOnly || /^(?:sim|confirmo|isso|pode apagar|pode prosseguir)$/.test(short))) {
+        return agenda.continueRemoval(body.pendingRemoval, recurringOnly);
+      }
+    }
     const instructions = [
       `Você é ${agent === 'ana' ? 'Ana, secretária' : 'Fin, assistente financeiro'} na Agenda DEV.`,
       `Hoje é ${today} e amanhã é ${tomorrow} em America/Sao_Paulo.`,
@@ -162,6 +188,7 @@ export function createAgentChat({ origin, apiKey, model, fetchResponse = fetch, 
       agent === 'ana' && (agenda ?
         'Para séries informe a frequência e a quantidade ou a data final somente se indicada. Use alterar_atendimento para editar, remarcar, cancelar ou apagar. Identifique o cliente e a sessão original. Quando houver dúvida sobre o alcance de uma série, pergunte. Só prepare a exclusão se o usuário pedir explicitamente para apagar; cancelar preserva o histórico. A confirmação de apagar ocorre exclusivamente no botão do aplicativo.' :
         'Esta Agenda aceita apenas agendamentos avulsos. Não agende só a primeira sessão de uma série nem altere sessões existentes.'),
+      agent === 'ana' && agenda && 'Para excluir por período, dia da semana, vários clientes, horários, recorrência ou pagamento, use revisar_exclusao_em_lote assim que os filtros estiverem claros. A lista e o botão serão gerados pelo servidor. Não peça confirmação por mensagem. Preserve limites já informados. “Até o fim do ano” começa hoje e termina em 31 de dezembro, salvo indicação diferente. “Não pagos” significa sem pagamento registrado, exceto quando o usuário citar o status Não pago. Se faltar dado que mude a seleção, faça só uma pergunta curta. Não use ferramentas de exclusão para hipóteses.',
     ].filter(Boolean).join(' ');
     const input = [...history.map(({ role, content }) => ({ role, content })), { role: 'user', content: message }];
     const output = await respond(input, instructions, {
@@ -171,7 +198,7 @@ export function createAgentChat({ origin, apiKey, model, fetchResponse = fetch, 
           type: 'object', properties: { [tool.field]: { type: 'string', description: tool.format } },
           required: [tool.field], additionalProperties: false,
         },
-      }, ...(agent === 'ana' ? (agenda ? [recurringBookingTool, changeTool] : [bookingTool]) : [])],
+      }, ...(agent === 'ana' ? (agenda ? [recurringBookingTool, changeTool, bulkTool] : [bookingTool]) : [])],
       parallel_tool_calls: false,
       include: ['reasoning.encrypted_content'],
     });
@@ -186,6 +213,11 @@ export function createAgentChat({ origin, apiKey, model, fetchResponse = fetch, 
     let args;
     try { args = JSON.parse(call.arguments); }
     catch { throw new ChatError(502, 'Dados da ação inválidos.'); }
+    if (agenda && agent === 'ana' && call.name === bulkTool.name) {
+      if (!args || !validRemovalFilters(args)) return { reply: 'Quais atendimentos você quer apagar? Informe o cliente, o período ou outro filtro.' };
+      const filters = Object.fromEntries(Object.keys(bulkFields).map(key => [key, args[key]]));
+      return agenda.bulkRemoval(filters);
+    }
     if (agent === 'ana' && call.name === bookingTool.name) {
       const { nome, data, horario, modalidade, frequencia = 'none', quantidade, ate } = args || {};
       if (!validText(nome, 100) || typeof data !== 'string' || !validDate(data) ||
@@ -273,7 +305,7 @@ export function createAgentChat({ origin, apiKey, model, fetchResponse = fetch, 
       const body = await readBody(req);
       if (!body || typeof body !== 'object' || Array.isArray(body)) throw new ChatError(400, 'Mensagem inválida.');
       if (agenda && Object.hasOwn(body, 'confirmation')) {
-        if (!/^[0-9a-f-]{36}$/.test(body.confirmation || '')) throw new ChatError(400, 'Confirmação inválida.');
+        if (!tokenPattern.test(body.confirmation || '')) throw new ChatError(400, 'Confirmação inválida.');
         return send(200, await agenda.confirmRemoval(body.confirmation));
       }
       if (agenda && Object.hasOwn(body, 'id')) throw new ChatError(400, 'O servidor consulta a agenda compartilhada diretamente.');

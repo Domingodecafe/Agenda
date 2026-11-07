@@ -7,12 +7,13 @@ import { createAgentChat } from '../agent-chat-server.mjs';
 const origin = 'http://127.0.0.1:43188';
 const message = text => ({ type: 'message', content: [{ type: 'output_text', text }] });
 
-async function harness(t, replies, configured = true) {
+async function harness(t, replies, configured = true, agenda) {
   const requests = [];
   const server = http.createServer(createAgentChat({
     origin,
     apiKey: configured ? 'test-key' : '',
     model: 'test-model',
+    agenda,
     fetchResponse: async (_url, request) => {
       requests.push(JSON.parse(request.body));
       const next = replies.shift();
@@ -55,6 +56,34 @@ test('Ana e Fin só recebem os fatos da ferramenta autorizada e o token só vale
     assert.deepEqual(JSON.parse(output.output), facts);
     assert.equal((await post({ id: start.body.id, result })).status, 409);
   }
+});
+
+test('Ana prepara lote direto sem chamar o modelo e usa só uma chamada para filtros interpretados', async t => {
+  const token = '12345678-1234-1234-1234-123456789abc';
+  const filters = { names: ['Lia'], from: '2026-11-01', through: '2026-11-30', weekdays: [3], start: null,
+    throughTime: null, recurrence: null, payment: 'paid' };
+  const selections = [];
+  const { post, requests } = await harness(t, [[{
+    type: 'function_call', name: 'revisar_exclusao_em_lote', call_id: 'bulk', arguments: JSON.stringify(filters),
+  }]], true, {
+    bulkRemoval: async selection => {
+      selections.push(selection);
+      return { reply: 'Revise o lote.', confirmation: token };
+    },
+    continueRemoval: async (provided, recurringOnly) => {
+      assert.equal(provided, token);
+      assert.equal(recurringOnly, true);
+      return { reply: 'Revise o lote recorrente.' };
+    },
+  });
+  const input = { agent: 'ana', history: [] };
+  assert.equal((await post({ ...input, message: 'Apague tudo das quartas até o fim do ano' })).body.confirmation, token);
+  assert.deepEqual(selections[0].weekdays, [3]);
+  assert.equal((await post({ ...input, message: 'Sim, apague a série inteira', pendingRemoval: token })).body.reply, 'Revise o lote recorrente.');
+  assert.equal(requests.length, 0);
+  assert.equal((await post({ ...input, message: 'Apague os atendimentos já pagos da Lia que caem nas quartas de novembro' })).body.confirmation, token);
+  assert.deepEqual(selections[1], filters);
+  assert.equal(requests.length, 1);
 });
 
 test('Diagnóstico da OpenAI distingue chave, acesso ao modelo e saldo sem expor a resposta original', async t => {
