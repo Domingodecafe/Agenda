@@ -71,10 +71,10 @@
         request.onerror = () => reject(request.error);
       });
       db.close();
-      state = value || structuredClone(emptyState);
+      state = value || structuredClone(window.AgendaHostedConfig?.fixture ?? emptyState);
     } catch (error) {
       storageMode = 'localStorage';
-      try { state = JSON.parse(localStorage.getItem(environment.fallbackKey)) || structuredClone(emptyState); }
+      try { state = JSON.parse(localStorage.getItem(environment.fallbackKey)) || structuredClone(window.AgendaHostedConfig?.fixture ?? emptyState); }
       catch { state = structuredClone(emptyState); }
     }
     if (state.anaLocalVersion === 1) {
@@ -120,6 +120,62 @@
       localStorage.setItem(environment.fallbackKey, JSON.stringify(envelope));
       localStorage.setItem(environment.fallbackMarker, 'active');
     }
+  }
+
+  async function bookFromChat(request) {
+    if (environment.networkEnabled !== false) throw new Error('O agendamento pelo chat está disponível apenas na Agenda DEV local.');
+    const operation = localWrites.then(async () => {
+      const prepare = value => {
+        const envelope = value?.anaLocalVersion === 1 ? value : { anaLocalVersion: 1, state: value, sync: null };
+        const result = window.AgentChat.prepareBooking(envelope.state ?? state, request, new Date(), uid);
+        return { result, envelope: { ...envelope, state: result.state ?? envelope.state ?? state } };
+      };
+      let booking;
+      try {
+        if (localStorage.getItem(environment.fallbackMarker) === 'active') {
+          booking = await navigator.locks.request(STATE_KEY, () => {
+            const raw = localStorage.getItem(environment.fallbackKey);
+            if (!raw) throw new Error('Estado local ausente.');
+            const next = prepare(JSON.parse(raw));
+            if (next.result.state) localStorage.setItem(environment.fallbackKey, JSON.stringify(next.envelope));
+            return next;
+          });
+        } else {
+          const db = await openDatabase();
+          try {
+            booking = await new Promise((resolve, reject) => {
+              const tx = db.transaction(STORE, 'readwrite');
+              const store = tx.objectStore(STORE);
+              const read = store.get(STATE_KEY);
+              let next, failure;
+              read.onsuccess = () => {
+                try {
+                  next = prepare(read.result);
+                  if (next.result.state) store.put(next.envelope, STATE_KEY);
+                } catch (error) {
+                  failure = error;
+                  tx.abort();
+                }
+              };
+              tx.oncomplete = () => resolve(next);
+              tx.onabort = () => reject(failure || tx.error);
+            });
+          } finally { db.close(); }
+        }
+      } catch {
+        throw new Error('Não foi possível salvar o atendimento na Agenda. Tente novamente.');
+      }
+      state = booking.envelope.state;
+      syncMetadata = booking.envelope.sync;
+      renderCalendar();
+      if (activeTab === 'clients') renderClients();
+      if (activeTab === 'summary') renderSummary();
+      return { reply: booking.result.reply, details: booking.result.details };
+    });
+    localWrites = operation.catch(() => {});
+    pendingSaves.add(operation);
+    operation.then(() => pendingSaves.delete(operation), () => pendingSaves.delete(operation));
+    return operation;
   }
 
   function showToast(message) {
@@ -1224,7 +1280,7 @@
   }
 
   async function setupUpdates() {
-    if (!('serviceWorker' in navigator)) return;
+    if (environment.hosted || !('serviceWorker' in navigator)) return;
     try {
       const registration = await navigator.serviceWorker.register('./sw-ana-dev.js', {
         scope: environment.basePath, updateViaCache: 'none'
@@ -1293,6 +1349,7 @@
   }
 
   init().then(async () => {
+    window.AgentChat?.install(() => state, bookFromChat);
     while (pendingSaves.size) await Promise.all([...pendingSaves]);
     if (window.AnaCloud) window.AnaCloud.install({
       getState: () => structuredClone(state),

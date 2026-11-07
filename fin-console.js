@@ -210,7 +210,7 @@
   $('restore-cancel').onclick = () => { restoreCandidate = null; $('restore-dialog').close(); };
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') refresh(); });
   setInterval(() => { if (document.visibilityState === 'visible') refresh(); }, 60000);
-  if ('serviceWorker' in navigator) {
+  if (!AnaEnvironment.hosted && 'serviceWorker' in navigator) {
     navigator.serviceWorker.register('./sw-ana-dev.js', { scope: AnaEnvironment.basePath, updateViaCache: 'none' }).catch(() => {
       // A prévia e o livro continuam utilizáveis; não promete cache offline sem registro.
     });

@@ -1,0 +1,28 @@
+.agent-chat-content { padding: 20px; }
+.agent-chat .segmented { width: 100%; }
+.agent-chat .segmented button { flex: 1; min-height: 40px; }
+.agent-chat-note, #agent-chat-status { color: var(--muted); font-size: .85rem; }
+.agent-chat-log {
+  display: grid;
+  gap: 10px;
+  max-height: min(42vh, 420px);
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+}
+.agent-chat-message {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.agent-chat-message p { margin: 5px 0; white-space: pre-wrap; }
+.agent-chat-message small { color: var(--accent); }
+#agent-chat-form { display: flex; align-items: flex-end; gap: 8px; padding: 14px 0 0; }
+#agent-chat-form .field { flex: 1; min-width: 0; margin: 0; }
+#agent-chat-message { font-size: 16px; }
+#agent-chat-send, #agent-chat-open { min-height: 44px; }
+#agent-chat-status { min-height: 1.2em; margin-bottom: 0; }
+@media (max-width: 640px) {
+  .agent-chat-content { padding: 16px 16px max(16px, env(safe-area-inset-bottom)); }
+  .agent-chat-log { max-height: 36dvh; }
+  .topbar .header-actions { flex-wrap: wrap; justify-content: flex-end; }
+}

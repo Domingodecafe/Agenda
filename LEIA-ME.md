@@ -38,6 +38,44 @@ node preview.mjs
 - [Console Ana](http://127.0.0.1:43188/ana-dev/ana-console.html)
 - [Console Fin](http://127.0.0.1:43188/ana-dev/fin-console.html)
 
+### Chat da Ana e do Fin com IA
+
+Na Agenda DEV, abra **Chat** no cabeçalho e selecione **Ana** ou **Fin**.
+A Ana consulta horários livres e agenda pelo chat. Para pedir uma sessão, informe
+nome, dia e hora. Com o horário livre, ela salva direto por R$ 200,00, com duração
+de 60 minutos e status A receber. A modalidade padrão é Presencial.
+O Fin consulta recebimentos de um mês.
+Use somente dados fictícios. A conversa e os resultados resumidos das consultas
+são enviados à API da OpenAI.
+
+Antes de iniciar a prévia, configure a chave de API e o ID de um modelo
+compatível com chamadas de ferramentas na Responses API. No PowerShell 7:
+
+```powershell
+$env:OPENAI_API_KEY = Read-Host 'Chave da API da OpenAI' -MaskInput
+$env:OPENAI_MODEL = Read-Host 'ID do modelo da OpenAI'
+node preview.mjs
+```
+
+A configuração vale para esse terminal. Sem ela, a Agenda local continua
+disponível e o chat informa o que falta. Guarde a chave fora do repositório.
+
+### Publicar a Agenda DEV no Render
+
+Crie um **Web Service** Node na branch de teste, com o plano **Free**,
+comando de build `node --version` e comando de inicialização `node preview.mjs`.
+Defina o health check como `/healthz` e as variáveis abaixo no painel do Render:
+
+- `NODE_VERSION` com `24.22.1`.
+- `AGENDA_DEV_PASSWORD` com uma senha exclusiva de pelo menos 16 caracteres.
+- `OPENAI_API_KEY` com uma chave de API válida.
+- `OPENAI_MODEL` com o ID de um modelo com acesso à Responses API e às ferramentas.
+
+O serviço usa `RENDER_EXTERNAL_URL` e `PORT` do Render. Abra `/ana-dev/` no
+endereço HTTPS fornecido. A primeira abertura em um navegador recebe 20
+clientes e 83 sessões fictícias. As edições permanecem nesse navegador,
+independentes da Agenda local do PC. A versão online requer internet.
+
 Rode `node --test tests/*.test.mjs` na raiz para verificar a cópia. Use um perfil
 de navegador de teste e dados fictícios. Se precisar transferir registros locais,
 use o backup do aplicativo. O Git leva os arquivos versionados do projeto.

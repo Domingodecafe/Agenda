@@ -1,13 +1,14 @@
 'use strict';
-importScripts('./ana-environment.js?v=ana-dev-8');
+importScripts('./ana-environment.js?v=ana-dev-10');
 const environment = self.AnaEnvironment;
 if (!environment.isAllowed() || self.registration.scope !== environment.origin + environment.basePath) {
   throw new Error('Service Worker Ana DEV bloqueado fora da origem/escopo de testes.');
 }
 const CACHE = environment.cacheName;
 const FILES = [
-  './index.html', './styles.css?v=ana-dev-8', './ana-environment.js?v=ana-dev-8',
-  './ana-sync-engine.js?v=ana-dev-8', './cloud-sync.js?v=ana-dev-8', './app.js?v=ana-dev-8',
+  './index.html', './styles.css?v=ana-dev-8', './ana-environment.js?v=ana-dev-10',
+  './ana-sync-engine.js?v=ana-dev-8', './cloud-sync.js?v=ana-dev-8', './app.js?v=ana-dev-10',
+  './agent-chat.js?v=ana-dev-10', './agent-chat.css',
   './manifest.webmanifest', './icon.svg',
   './ana-console.html', './ana-console.css', './ana-console.js?v=ana-dev-8',
   './ana-policy.js?v=ana-dev-8', './ana-local-store.js?v=ana-dev-8',
