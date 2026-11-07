@@ -33,6 +33,7 @@ test('Prévia hospedada protege a Agenda e o chat e fornece o cenário somente a
   });
   assert.equal((await request('/healthz')).status, 200);
   assert.equal((await request('/ana-dev/')).headers.get('location'), '/ana-dev/login');
+  assert.equal((await request('/ana-dev/login')).headers.get('referrer-policy'), 'same-origin');
   assert.equal((await request('/ana-dev/ana-environment.js')).status, 401);
   assert.equal((await request('/ana-dev/api/chat', { method: 'POST' })).status, 401);
   const login = (value, from = origin) => request('/ana-dev/login', {
@@ -40,7 +41,9 @@ test('Prévia hospedada protege a Agenda e o chat e fornece o cenário somente a
     body: new URLSearchParams({ password: value }),
   });
   assert.equal((await login(password, 'https://other.example')).status, 403);
-  assert.equal((await login('incorrect')).status, 401);
+  const wrongPassword = await login('incorrect');
+  assert.equal(wrongPassword.status, 401);
+  assert.equal(wrongPassword.headers.get('referrer-policy'), 'same-origin');
   const signedIn = await login(password);
   assert.equal(signedIn.status, 303);
   const cookie = signedIn.headers.get('set-cookie');

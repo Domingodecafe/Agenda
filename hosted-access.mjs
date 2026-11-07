@@ -16,6 +16,8 @@ export function hostedAccess({ origin, password }) {
   let retryAfter = 0;
   return async (req, res, path) => {
     const isChat = path === '/ana-dev/api/chat';
+    // O formulário precisa enviar Origin no POST, sem enviar referência a outros sites.
+    if (path === '/ana-dev/login') res.setHeader('Referrer-Policy', 'same-origin');
     const value = req.headers.cookie?.split(';').map(part => part.trim()).find(part => part.startsWith(cookie + '='))?.slice(cookie.length + 1);
     const [expiry, signature] = value?.split('.') ?? [];
     const authenticated = /^\d{10}$/.test(expiry || '') && Number(expiry) > Math.floor(Date.now() / 1000) &&
