@@ -51,9 +51,14 @@ const supabase = {
   email: process.env.AGENDA_SUPABASE_EMAIL?.trim(),
   password: process.env.AGENDA_SUPABASE_PASSWORD,
 };
-if (sharedEnabled && (!hostedOrigin || !/^https:\/\/[a-z0-9]+\.supabase\.co$/.test(supabase.url || '') ||
-    !supabase.key?.startsWith('sb_publishable_') || !supabase.email || !supabase.password)) {
-  throw new Error('Agenda compartilhada exige hospedagem HTTPS e configuração do usuário dedicado do Supabase DEV.');
+if (sharedEnabled) {
+  const problems = [];
+  if (!hostedOrigin) problems.push('RENDER_EXTERNAL_URL ausente');
+  if (!/^https:\/\/[a-z0-9]+\.supabase\.co$/.test(supabase.url || '')) problems.push('AGENDA_SUPABASE_URL deve ser a URL HTTPS do projeto, sem caminho');
+  if (!supabase.key?.startsWith('sb_publishable_')) problems.push('AGENDA_SUPABASE_PUBLISHABLE_KEY ausente ou não começa com sb_publishable_');
+  if (!supabase.email) problems.push('AGENDA_SUPABASE_EMAIL está vazio ou ausente');
+  if (!supabase.password?.trim()) problems.push('AGENDA_SUPABASE_PASSWORD está vazia ou ausente');
+  if (problems.length) throw new Error('Configuração da Agenda compartilhada: ' + problems.join(' | '));
 }
 if (hostedOrigin) {
   const problems = [];
