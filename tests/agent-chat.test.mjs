@@ -16,6 +16,7 @@ async function harness(t, replies, configured = true) {
     fetchResponse: async (_url, request) => {
       requests.push(JSON.parse(request.body));
       const next = replies.shift();
+      if (next instanceof Response) return next;
       if (typeof next === 'number') return new Response(null, { status: next });
       return Response.json({ status: 'completed', output: next });
     },
@@ -53,6 +54,21 @@ test('Ana e Fin só recebem os fatos da ferramenta autorizada e o token só vale
     assert.equal(output.call_id, 'call_1');
     assert.deepEqual(JSON.parse(output.output), facts);
     assert.equal((await post({ id: start.body.id, result })).status, 409);
+  }
+});
+
+test('Diagnóstico da OpenAI distingue chave, acesso ao modelo e saldo sem expor a resposta original', async t => {
+  const upstream = (status, code) => Response.json({ error: { code, message: 'sentinela-secreta' } }, { status });
+  const { post } = await harness(t, [
+    upstream(401, 'invalid_api_key'), upstream(403, null), upstream(404, 'model_not_found'),
+    upstream(429, 'credit_balance_exhausted'),
+  ]);
+  const input = { agent: 'ana', message: 'Quais horários estão livres amanhã?', history: [] };
+  for (const expected of [/invalid_api_key/, /negou acesso \(403\)/, /model_not_found/, /credit_balance_exhausted/]) {
+    const { status, body } = await post(input);
+    assert.equal(status, 503);
+    assert.match(body.error, expected);
+    assert.doesNotMatch(body.error, /sentinela-secreta/);
   }
 });
 

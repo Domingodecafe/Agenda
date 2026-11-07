@@ -33,6 +33,26 @@ class ChatError extends Error {
   }
 }
 
+async function openAIError(response) {
+  const payload = await response.json().catch(() => null);
+  // Nunca repassa error.message, que pode incluir parte da chave ou dados do pedido.
+  const code = payload?.error?.code;
+  if (code === 'invalid_api_key') {
+    return new ChatError(503, 'A OpenAI rejeitou a chave (invalid_api_key). Troque OPENAI_API_KEY no Render por uma chave ativa do projeto correto.');
+  }
+  if (code === 'model_not_found') {
+    return new ChatError(503, 'O projeto da chave não tem acesso ao modelo configurado (model_not_found). Confira OPENAI_MODEL no Render e os modelos disponíveis no projeto da OpenAI.');
+  }
+  if (['insufficient_quota', 'credit_balance_exhausted', 'organization_usage_limit_exceeded',
+    'organization_spend_limit_exceeded', 'project_spend_limit_exceeded'].includes(code)) {
+    return new ChatError(503, `A OpenAI bloqueou a consulta por saldo ou limite de gastos (${code}). Confira a cobrança e os limites do projeto da chave.`);
+  }
+  if (response.status === 401) return new ChatError(503, 'A OpenAI recusou a autenticação (401). Confira a chave, o projeto e eventuais restrições de IP na OpenAI.');
+  if (response.status === 403) return new ChatError(503, 'A OpenAI negou acesso (403). Confira se a chave tem permissão para usar a Responses API e o modelo no projeto.');
+  if (response.status === 429) return new ChatError(503, 'A OpenAI atingiu um limite de uso (429). Verifique a conta e tente novamente.');
+  return new ChatError(502, `A OpenAI recusou a consulta (${response.status}). Confira o modelo configurado e tente novamente.`);
+}
+
 async function readBody(req) {
   const chunks = [];
   let size = 0;
@@ -64,9 +84,7 @@ export function createAgentChat({ origin, apiKey, model, fetchResponse = fetch }
     } catch {
       throw new ChatError(503, 'Sem conexão com a OpenAI ou tempo de resposta esgotado.');
     }
-    if (response.status === 401 || response.status === 403) throw new ChatError(503, 'Confira a chave e o acesso ao modelo da OpenAI.');
-    if (response.status === 429) throw new ChatError(503, 'A OpenAI atingiu um limite de uso. Verifique a conta e tente novamente.');
-    if (!response.ok) throw new ChatError(502, 'A OpenAI recusou a consulta. Confira o modelo configurado e tente novamente.');
+    if (!response.ok) throw await openAIError(response);
     const data = await response.json();
     if (data.status !== 'completed' || !Array.isArray(data.output)) throw new ChatError(502, 'A OpenAI não concluiu a resposta.');
     return data.output;
