@@ -32,22 +32,31 @@ const files = new Map([
   ['/manifest.webmanifest', 'application/manifest+json'],
   ['/icon.svg', 'image/svg+xml'],
 ]);
-const hostedOrigin = process.env.AGENDA_DEV_ORIGIN || process.env.RENDER_EXTERNAL_URL;
+const hostedOrigin = (process.env.AGENDA_DEV_ORIGIN || process.env.RENDER_EXTERNAL_URL || '').trim().replace(/\/$/, '');
+if (process.env.RENDER === 'true' && !hostedOrigin) {
+  throw new Error('O Render não forneceu RENDER_EXTERNAL_URL. Configure AGENDA_DEV_ORIGIN com o endereço HTTPS do serviço.');
+}
 const port = hostedOrigin ? Number(process.env.PORT || 10000) : 43188;
 const host = hostedOrigin ? '0.0.0.0' : '127.0.0.1';
 const basePath = '/ana-dev/';
-const url = new URL(hostedOrigin || `http://${host}:${port}`);
+const url = URL.parse(hostedOrigin || `http://${host}:${port}`);
 const password = process.env.AGENDA_DEV_PASSWORD;
-if (hostedOrigin && (url.protocol !== 'https:' || url.origin !== hostedOrigin || !password || password.length < 16 ||
-    !process.env.OPENAI_API_KEY || !process.env.OPENAI_MODEL)) {
-  throw new Error('Agenda DEV online exige origem HTTPS, senha de pelo menos 16 caracteres e configuração da OpenAI.');
+const apiKey = process.env.OPENAI_API_KEY?.trim();
+const model = process.env.OPENAI_MODEL?.trim();
+if (hostedOrigin) {
+  const problems = [];
+  if (url?.protocol !== 'https:' || url.origin !== hostedOrigin) problems.push('AGENDA_DEV_ORIGIN ou RENDER_EXTERNAL_URL deve ser um endereço HTTPS sem caminho');
+  if (!password || password.trim().length < 16 || password.length > 256) problems.push('AGENDA_DEV_PASSWORD deve ter de 16 a 256 caracteres');
+  if (!apiKey) problems.push('OPENAI_API_KEY está vazia ou ausente');
+  if (!model) problems.push('OPENAI_MODEL está vazio ou ausente');
+  if (problems.length) throw new Error('Configuração da Agenda DEV: ' + problems.join(' | '));
 }
 const access = hostedOrigin ? hostedAccess({ origin: url.origin, password }) : null;
 const browserConfig = hostedOrigin ? `globalThis.AgendaHostedConfig = ${JSON.stringify({ origin: url.origin, fixture: createFixture() })};\n` : '';
 const agentChat = createAgentChat({
   origin: url.origin,
-  apiKey: process.env.OPENAI_API_KEY,
-  model: process.env.OPENAI_MODEL,
+  apiKey,
+  model,
 });
 const server = http.createServer(async (req, res) => {
   res.setHeader('Cache-Control', 'no-store');

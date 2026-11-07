@@ -15,7 +15,7 @@ test('Prévia hospedada protege a Agenda e o chat e fornece o cenário somente a
   const origin = 'https://agenda-dev.example';
   const password = 'senha-exclusiva-de-teste';
   const server = spawn(process.execPath, [fileURLToPath(new URL('../preview.mjs', import.meta.url))], {
-    env: { ...process.env, AGENDA_DEV_ORIGIN: origin, PORT: String(port), AGENDA_DEV_PASSWORD: password,
+    env: { ...process.env, AGENDA_DEV_ORIGIN: origin + '/', PORT: String(port), AGENDA_DEV_PASSWORD: password,
       OPENAI_API_KEY: 'fake-key', OPENAI_MODEL: 'fake-model' },
   });
   t.after(() => server.kill());
@@ -58,4 +58,20 @@ test('Prévia hospedada protege a Agenda e o chat e fornece o cenário somente a
   assert.equal(clients.length, 20);
   assert.equal(appointments.length, 83);
   assert.equal(appointments.filter(a => a.financialStatus === 'Pago').reduce((n, a) => n + a.value, 0), 3200);
+});
+
+test('Inicialização lista configurações ausentes sem imprimir valores secretos', async () => {
+  const secret = 'senha-curta';
+  const server = spawn(process.execPath, [fileURLToPath(new URL('../preview.mjs', import.meta.url))], {
+    env: { ...process.env, AGENDA_DEV_ORIGIN: 'https://agenda-dev.example', AGENDA_DEV_PASSWORD: secret,
+      OPENAI_API_KEY: ' ', OPENAI_MODEL: '' },
+  });
+  let logs = '';
+  server.stderr.setEncoding('utf8').on('data', chunk => { logs += chunk; });
+  const [code] = await once(server, 'close');
+  assert.equal(code, 1);
+  assert.match(logs, /AGENDA_DEV_PASSWORD deve ter/);
+  assert.match(logs, /OPENAI_API_KEY está vazia ou ausente/);
+  assert.match(logs, /OPENAI_MODEL está vazio ou ausente/);
+  assert.ok(!logs.includes(secret));
 });
