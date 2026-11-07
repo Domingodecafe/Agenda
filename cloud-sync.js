@@ -3,6 +3,8 @@
   'use strict';
   const environment = window.AnaEnvironment;
   if (!environment?.isAllowed()) return;
+  // Etapa exclusivamente local: não carrega SDK nem restaura sessão remota.
+  if (environment.networkEnabled === false) return;
   const CONFIG_KEY = environment.cloudConfigKey;
   const SDK_URL = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/+esm';
   const instance = crypto.randomUUID();

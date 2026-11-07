@@ -7,7 +7,7 @@
   <meta name="description" content="Ana em desenvolvimento. Use exclusivamente dados fictícios.">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=ana-dev-5">
+  <link rel="stylesheet" href="styles.css?v=ana-dev-8">
   <title>Ana DEV — Agenda de testes</title>
 </head>
 <body>
@@ -15,6 +15,8 @@
     <header class="topbar">
       <div class="brand"><span class="brand-mark">A</span><h1>Ana DEV</h1><span class="app-version" aria-label="Ambiente de desenvolvimento">DEV</span></div>
       <div class="header-actions">
+        <a class="text-button" href="ana-console.html">Atendimento Ana</a>
+        <a class="text-button" href="fin-console.html">Financeiro Fin</a>
         <button id="install-button" class="icon-button install-button hidden" type="button" title="Instalar aplicativo" aria-label="Instalar aplicativo">⇩</button>
         <button id="today-header" class="text-button" type="button">Hoje</button>
         <span class="local-badge"><i></i> TESTE · Somente dados fictícios</span>
@@ -47,6 +49,7 @@
       </section>
 
       <section id="summary-screen" class="screen" aria-label="Resumo financeiro">
+        <p style="padding:0 17px"><a class="text-action" href="fin-console.html">Abrir Financeiro Fin ↗</a></p>
         <div id="summary-overview">
           <div class="section-heading"><div><span class="eyebrow">RESUMO</span><div class="summary-title"><h2>Financeiro</h2><button class="values-toggle" data-toggle-values type="button" aria-label="Ocultar valores" aria-pressed="false" title="Ocultar valores"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/><path class="eye-slash hidden" d="m3 3 18 18"/></svg></button></div><p>Quem precisa pagar, o que entrou e as próximas sessões.</p></div><label id="summary-month-picker" class="month-picker"><span>Mês</span><input id="summary-month" type="month"></label></div>
           <div id="finance-cards" class="finance-grid finance-actions" role="tablist" aria-label="Visões financeiras"></div>
@@ -148,9 +151,9 @@
   </dialog>
   <dialog id="payment-history-dialog" class="modal small-modal payment-history-dialog"><form method="dialog"><div class="modal-header"><div><span class="eyebrow">AUDITORIA</span><h2>Histórico do pagamento</h2></div><button class="close-button" value="cancel" aria-label="Fechar">×</button></div><div id="payment-history-list" class="payment-history-list"></div><div class="modal-actions"><span></span><button class="primary-button" value="cancel">Fechar</button></div></form></dialog>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script src="ana-environment.js?v=ana-dev-5" defer></script>
-  <script src="ana-sync-engine.js?v=ana-dev-5" defer></script>
-  <script src="cloud-sync.js?v=ana-dev-5" defer></script>
-  <script src="app.js?v=ana-dev-5" defer></script>
+  <script src="ana-environment.js?v=ana-dev-8" defer></script>
+  <script src="ana-sync-engine.js?v=ana-dev-8" defer></script>
+  <script src="cloud-sync.js?v=ana-dev-8" defer></script>
+  <script src="app.js?v=ana-dev-8" defer></script>
 </body>
 </html>

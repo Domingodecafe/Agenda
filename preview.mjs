@@ -9,6 +9,18 @@ const files = new Map([
   ['/sw-ana-dev.js', 'text/javascript; charset=utf-8'],
   ['/ana-environment.js', 'text/javascript; charset=utf-8'],
   ['/ana-sync-engine.js', 'text/javascript; charset=utf-8'],
+  ['/ana-console.html', 'text/html; charset=utf-8'],
+  ['/ana-console.css', 'text/css; charset=utf-8'],
+  ['/ana-console.js', 'text/javascript; charset=utf-8'],
+  ['/ana-policy.js', 'text/javascript; charset=utf-8'],
+  ['/ana-local-store.js', 'text/javascript; charset=utf-8'],
+  ['/fin-console.html', 'text/html; charset=utf-8'],
+  ['/fin-console.css', 'text/css; charset=utf-8'],
+  ['/fin-console.js', 'text/javascript; charset=utf-8'],
+  ['/fin-core.js', 'text/javascript; charset=utf-8'],
+  ['/fin-ledger.js', 'text/javascript; charset=utf-8'],
+  ['/fin-assistant.js', 'text/javascript; charset=utf-8'],
+  ['/fin-store.js', 'text/javascript; charset=utf-8'],
   ['/verificar-isolamento.html', 'text/html; charset=utf-8'],
   ['/verificar-isolamento.js', 'text/javascript; charset=utf-8'],
   ['/styles.css', 'text/css; charset=utf-8'],
@@ -22,6 +34,7 @@ const server = http.createServer(async (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('Content-Security-Policy', "default-src 'self'; connect-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'");
   if (req.headers.host !== `${host}:${port}`) {
     res.writeHead(403).end(); return;
   }

@@ -1,5 +1,13 @@
 # Agenda
 
+> **Fin — financeiro da marca:** painel local integrado à mesma Agenda DEV da
+> Ana, com leitura financeira, despesas pagas e exportação para o futuro agente.
+> A Agenda original não foi alterada. Veja [PREPARACAO-FIN.md](PREPARACAO-FIN.md).
+
+> **Upgrade Fin v2:** conversa offline, projeção do resultado, contas mensais,
+> simulações e backup restaurável. Instruções em
+> [IMPLEMENTACAO-FIN-V2.md](IMPLEMENTACAO-FIN-V2.md).
+
 > **Aula 3.7:** API autenticada e somente de leitura para disponibilidade no
 > Supabase DEV. Contrato e resultados em
 > [AULA-3.7-DISPONIBILIDADE.md](AULA-3.7-DISPONIBILIDADE.md). A PWA original não foi alterada.
@@ -15,6 +23,24 @@
 > preservam a documentação da Agenda que serviu de base.
 
 PWA responsiva para organizar atendimentos. Os dados são salvos somente no navegador do dispositivo, usando IndexedDB e localStorage como alternativa.
+
+## Continuar o desenvolvimento em outro computador
+
+Com Git e Node.js 24 instalados, clone a branch de desenvolvimento e inicie a prévia:
+
+```powershell
+git clone --branch feat/ana-supabase https://github.com/Domingodecafe/Agenda.git Sec.Ana
+cd Sec.Ana
+node preview.mjs
+```
+
+- [Agenda DEV](http://127.0.0.1:43188/ana-dev/)
+- [Console Ana](http://127.0.0.1:43188/ana-dev/ana-console.html)
+- [Console Fin](http://127.0.0.1:43188/ana-dev/fin-console.html)
+
+Rode `node --test tests/*.test.mjs` na raiz para verificar a cópia. Use um perfil
+de navegador de teste e dados fictícios. Se precisar transferir registros locais,
+use o backup do aplicativo. O Git leva os arquivos versionados do projeto.
 
 ## Como usar
 

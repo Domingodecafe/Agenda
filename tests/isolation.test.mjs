@@ -89,6 +89,14 @@ test('Bloqueia execução fora da origem ou caminho de desenvolvimento antes de 
   }
 });
 
+test('Etapa local bloqueia o módulo de nuvem antes de ler configuração ou sessão', () => {
+  const ctx=context();
+  Object.defineProperty(ctx,'localStorage',{get(){throw new Error('Não deve ler credenciais.');}});
+  vm.runInContext(cloudSource,ctx);
+  assert.equal(ctx.AnaEnvironment.networkEnabled,false);
+  assert.equal(ctx.AnaCloud,undefined);
+});
+
 test('Ana inicia vazia e preserva o IndexedDB original fictício sem abri-lo', async () => {
   const { ctx, original, databases, local, accesses } = persistenceContext();
   await ctx.persistence.loadState();
@@ -166,7 +174,7 @@ function workerContext(scope = devURL) {
     caches: {
       async open(name) {
         opened.push(name);
-        assert.equal(name, 'ana-dev-pwa-v5');
+        assert.equal(name, 'ana-dev-pwa-v8');
         return {
           async addAll(files) { cached.push(...files); },
           async match(request) { matched.push(request); return 'RESPOSTA ANA'; }
@@ -193,9 +201,9 @@ test('Worker pré-carrega todos os scripts e usa somente cache Ana', async () =>
   let pending;
   events.get('install')({waitUntil(promise) { pending = promise; }});
   await pending;
-  assert.deepEqual(opened, ['ana-dev-pwa-v5']);
+  assert.deepEqual(opened, ['ana-dev-pwa-v8']);
   for (const filename of ['ana-environment.js', 'cloud-sync.js', 'app.js']) {
-    assert.ok(cached.includes('./' + filename + '?v=ana-dev-5'));
+    assert.ok(cached.includes('./' + filename + '?v=ana-dev-8'));
   }
   assert.equal(foreignCache.sentinel, 'CACHE ORIGINAL FICTÍCIO');
 });
@@ -211,12 +219,12 @@ test('Worker não intercepta outra origem, caminho externo nem chamada de API', 
 test('Worker consulta só o próprio cache para navegação e arquivos de desenvolvimento', async () => {
   const { ctx, events, opened } = workerContext();
   vm.runInContext(workerSource, ctx);
-  for (const [url,mode] of [[devURL,'navigate'],[devURL+'cloud-sync.js?v=ana-dev-5','cors']]) {
+  for (const [url,mode] of [[devURL,'navigate'],[devURL+'cloud-sync.js?v=ana-dev-8','cors']]) {
     let response;
     events.get('fetch')({request:{method:'GET',url,mode},respondWith(promise){response=promise;}});
     assert.equal(await response, 'RESPOSTA ANA');
   }
-  assert.ok(opened.every(name => name === 'ana-dev-pwa-v5'));
+  assert.ok(opened.every(name => name === 'ana-dev-pwa-v8'));
 });
 
 test('Manifesto tem identidade e início próprios; cliente Auth tem chave separada', async () => {
