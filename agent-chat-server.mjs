@@ -20,11 +20,52 @@ const bookingTool = {
     required: ['nome', 'data', 'horario', 'modalidade'],
   },
 };
+const nullableText = description => ({ type: ['string', 'null'], description });
+const recurringBookingTool = {
+  ...bookingTool,
+  description: 'Agenda uma sessão ou uma série quando o usuário pedir explicitamente.',
+  parameters: {
+    ...bookingTool.parameters,
+    properties: {
+      ...bookingTool.parameters.properties,
+      frequencia: { type: 'string', enum: ['none', 'weekly', 'biweekly', 'monthly'] },
+      quantidade: { type: ['integer', 'null'], description: 'Número de sessões se informado.' },
+      ate: nullableText('Última data inclusiva AAAA-MM-DD se informada.'),
+    },
+    required: [...bookingTool.parameters.required, 'frequencia', 'quantidade', 'ate'],
+  },
+};
+const changeFields = {
+  acao: { type: 'string', enum: ['edit', 'cancel', 'delete'] },
+  nome: { type: 'string', description: 'Nome do cliente identificado no pedido.' },
+  data: nullableText('Data original AAAA-MM-DD.'),
+  horario: nullableText('Horário original HH:MM.'),
+  alcance: { type: ['string', 'null'], enum: ['single', 'future', 'series', null] },
+  nova_data: nullableText('Nova data AAAA-MM-DD.'),
+  novo_horario: nullableText('Novo início HH:MM.'),
+  modalidade: { type: ['string', 'null'], enum: ['Presencial', 'Online', null] },
+  valor: { type: ['number', 'null'], description: 'Novo valor em reais, se pedido.' },
+  duracao: { type: ['integer', 'null'], description: 'Nova duração em minutos, se pedida.' },
+};
+const changeTool = {
+  type: 'function', name: 'alterar_atendimento', strict: true,
+  description: 'Edita, remarca, cancela ou prepara a exclusão de atendimentos existentes.',
+  parameters: { type: 'object', additionalProperties: false, properties: changeFields, required: Object.keys(changeFields) },
+};
 const validDate = value => /^\d{4}-\d{2}-\d{2}$/.test(value) &&
   Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value;
 const validText = (value, max) => typeof value === 'string' && value.length <= max && value.trim().length > 0;
 const answer = output => output.flatMap(item => item.type === 'message' ? item.content : [])
   .find(item => item.type === 'output_text')?.text?.trim();
+const validStart = value => typeof value === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
+const optionalDate = value => value == null || (typeof value === 'string' && validDate(value));
+const cleanAnswer = output => {
+  const reply = answer(output);
+  if (!reply || /<\/?(?:commentary|analysis|function_call|tool_call)\b|\bto=functions\.|<\|[^>]+\|>/i.test(reply)) {
+    throw new ChatError(502, 'O agente retornou uma resposta inválida. Sua pergunta foi preservada para tentar novamente.');
+  }
+  return reply;
+};
 
 class ChatError extends Error {
   constructor(status, message) {
@@ -72,13 +113,13 @@ export function createAgentChat({ origin, apiKey, model, fetchResponse = fetch, 
   const pending = new Map();
   let active = 0;
 
-  async function respond(input, instructions, options) {
+  async function respond(input, instructions, options, budget = 1600) {
     let response;
     try {
       response = await fetchResponse('https://api.openai.com/v1/responses', {
         method: 'POST',
         headers: { Authorization: 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model, input, instructions, store: false, max_output_tokens: 800, ...options }),
+        body: JSON.stringify({ model, input, instructions, store: false, max_output_tokens: budget, ...options }),
         signal: AbortSignal.timeout(20000),
       });
     } catch {
@@ -86,7 +127,16 @@ export function createAgentChat({ origin, apiKey, model, fetchResponse = fetch, 
     }
     if (!response.ok) throw await openAIError(response);
     const data = await response.json();
-    if (data.status !== 'completed' || !Array.isArray(data.output)) throw new ChatError(502, 'A OpenAI não concluiu a resposta.');
+    const reason = data.incomplete_details?.reason;
+    if (data.status === 'incomplete' && reason === 'max_output_tokens' && budget === 1600) {
+      return respond(input, instructions, options, 4800);
+    }
+    if (data.status !== 'completed' || !Array.isArray(data.output)) {
+      const detail = reason === 'max_output_tokens' ? 'A resposta atingiu o limite de geração.' :
+        reason === 'content_filter' ? 'A resposta foi interrompida pelo filtro da OpenAI.' :
+          'A OpenAI não concluiu a resposta.';
+      throw new ChatError(502, detail + ' Sua pergunta foi preservada para tentar novamente.');
+    }
     return data.output;
   }
 
@@ -107,9 +157,12 @@ export function createAgentChat({ origin, apiKey, model, fetchResponse = fetch, 
       'Responda em português do Brasil.',
       'Chame a ferramenta para perguntas que exigem dados da Agenda. Nunca invente horários ou valores.',
       agent === 'ana' ?
-        'Ao receber um pedido explícito de agendamento, use agendar_atendimento assim que houver nome, data e hora. Aproveite informações anteriores do mesmo pedido. Pergunte somente o que faltar ou estiver ambíguo. A sessão tem 60 minutos, custa R$ 200 e é presencial se a modalidade não foi informada. Não peça confirmação. Não use agendar_atendimento para consultas, hipóteses ou pedidos de editar, remarcar, cancelar ou criar recorrência. Nunca diga que gravou: o aplicativo mostrará o resultado.' :
+        'Use agendar_atendimento somente para pedidos explícitos de agendamento com nome, data e hora. Use o contexto do mesmo pedido. Pergunte só o que falta. Nunca diga que gravou: o aplicativo mostrará o resultado.' :
         'Você só consulta recebimentos. Recuse pedidos de criação, edição ou exclusão. Peça esclarecimento se faltar o mês.',
-    ].join(' ');
+      agent === 'ana' && (agenda ?
+        'Para séries informe a frequência e a quantidade ou a data final somente se indicada. Use alterar_atendimento para editar, remarcar, cancelar ou apagar. Identifique o cliente e a sessão original. Quando houver dúvida sobre o alcance de uma série, pergunte. Só prepare a exclusão se o usuário pedir explicitamente para apagar; cancelar preserva o histórico. A confirmação de apagar ocorre exclusivamente no botão do aplicativo.' :
+        'Esta Agenda aceita apenas agendamentos avulsos. Não agende só a primeira sessão de uma série nem altere sessões existentes.'),
+    ].filter(Boolean).join(' ');
     const input = [...history.map(({ role, content }) => ({ role, content })), { role: 'user', content: message }];
     const output = await respond(input, instructions, {
       tools: [{
@@ -118,30 +171,46 @@ export function createAgentChat({ origin, apiKey, model, fetchResponse = fetch, 
           type: 'object', properties: { [tool.field]: { type: 'string', description: tool.format } },
           required: [tool.field], additionalProperties: false,
         },
-      }, ...(agent === 'ana' ? [bookingTool] : [])],
+      }, ...(agent === 'ana' ? (agenda ? [recurringBookingTool, changeTool] : [bookingTool]) : [])],
       parallel_tool_calls: false,
       include: ['reasoning.encrypted_content'],
     });
     const calls = output.filter(item => item.type === 'function_call');
     if (!calls.length) {
-      const reply = answer(output);
-      if (!reply) throw new ChatError(502, 'O agente não retornou uma resposta.');
-      return { reply };
+      return { reply: cleanAnswer(output) };
     }
     const [call] = calls;
-    if (calls.length !== 1 || !call.call_id) throw new ChatError(502, 'Ação do agente inválida.');
+    if (calls.length !== 1 || !call.call_id || (call.status && call.status !== 'completed')) {
+      throw new ChatError(502, 'A ação do agente não foi concluída. Sua pergunta foi preservada.');
+    }
     let args;
     try { args = JSON.parse(call.arguments); }
     catch { throw new ChatError(502, 'Dados da ação inválidos.'); }
     if (agent === 'ana' && call.name === bookingTool.name) {
-      const { nome, data, horario, modalidade } = args || {};
+      const { nome, data, horario, modalidade, frequencia = 'none', quantidade, ate } = args || {};
       if (!validText(nome, 100) || typeof data !== 'string' || !validDate(data) ||
-          typeof horario !== 'string' || !/^([01]\d|2[0-3]):[0-5]\d$/.test(horario) ||
-          ![null, 'Presencial', 'Online'].includes(modalidade)) {
+          !validStart(horario) || ![null, 'Presencial', 'Online'].includes(modalidade) ||
+          !['none', 'weekly', 'biweekly', 'monthly'].includes(frequencia) || (!agenda && frequencia !== 'none') ||
+          (frequencia === 'none' && (quantidade != null || ate != null)) ||
+          (quantidade != null && (!Number.isInteger(quantidade) || quantidade < 1 || quantidade > 104)) ||
+          !optionalDate(ate) || (ate != null && (ate < data || quantidade != null))) {
         throw new ChatError(502, 'O agente não identificou dados válidos para o agendamento.');
       }
       const booking = { name: nome.trim(), date: data, start: horario, modality: modalidade || 'Presencial' };
-      return agenda ? agenda.book(booking) : { booking };
+      return agenda ? agenda.book({ ...booking, frequency: frequencia, count: quantidade, until: ate }) : { booking };
+    }
+    if (agenda && agent === 'ana' && call.name === changeTool.name) {
+      const { acao, nome, data, horario, alcance, nova_data, novo_horario, modalidade, valor, duracao } = args || {};
+      if (!['edit', 'cancel', 'delete'].includes(acao) || !validText(nome, 100) ||
+          ![null, 'single', 'future', 'series'].includes(alcance) || !optionalDate(data) || !optionalDate(nova_data) ||
+          (horario != null && !validStart(horario)) || (novo_horario != null && !validStart(novo_horario)) ||
+          ![null, 'Presencial', 'Online'].includes(modalidade) ||
+          (valor != null && (!Number.isFinite(valor) || valor < 0 || valor > 100000 || !/^\d+(\.\d{1,2})?$/.test(String(valor)))) ||
+          (duracao != null && (!Number.isInteger(duracao) || duracao < 15 || duracao > 240))) {
+        throw new ChatError(502, 'Não consegui identificar os dados da alteração. Confira o pedido e tente novamente.');
+      }
+      return agenda.change({ action: acao, name: nome.trim(), date: data, start: horario, scope: alcance,
+        newDate: nova_data, newStart: novo_horario, modality: modalidade, value: valor, duration: duracao });
     }
     if (call.name !== tool.name) throw new ChatError(502, 'Consulta do agente inválida.');
     const period = args?.[tool.field];
@@ -185,9 +254,7 @@ export function createAgentChat({ origin, apiKey, model, fetchResponse = fetch, 
       ...input, ...output,
       { type: 'function_call_output', call_id: callId, output: JSON.stringify(facts) },
     ], instructions + ' Explique o resultado fornecido em texto curto. Use somente os fatos da ferramenta.');
-    const reply = answer(final);
-    if (!reply) throw new ChatError(502, 'O agente não retornou uma resposta.');
-    return { reply };
+    return { reply: cleanAnswer(final) };
   }
 
   return async (req, res) => {
@@ -205,6 +272,10 @@ export function createAgentChat({ origin, apiKey, model, fetchResponse = fetch, 
     try {
       const body = await readBody(req);
       if (!body || typeof body !== 'object' || Array.isArray(body)) throw new ChatError(400, 'Mensagem inválida.');
+      if (agenda && Object.hasOwn(body, 'confirmation')) {
+        if (!/^[0-9a-f-]{36}$/.test(body.confirmation || '')) throw new ChatError(400, 'Confirmação inválida.');
+        return send(200, await agenda.confirmRemoval(body.confirmation));
+      }
       if (agenda && Object.hasOwn(body, 'id')) throw new ChatError(400, 'O servidor consulta a agenda compartilhada diretamente.');
       send(200, await (Object.hasOwn(body, 'id') ? finish(body) : start(body)));
     } catch (error) {

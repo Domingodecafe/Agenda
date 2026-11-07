@@ -353,8 +353,11 @@
 
   function appointmentDisplayName(item) {
     if (item.kind === 'block') return item.label || 'Horário bloqueado';
-    return item.clientName || (item.type === 'Outro' ? 'Compromisso particular' : 'Atendimento');
+    const name = item.clientName || (item.type === 'Outro' ? 'Compromisso particular' : 'Atendimento');
+    return isCancelled(item) ? `Cancelado · ${name}` : name;
   }
+
+  const isCancelled = item => item.cancelled === true || ['Cancelado', 'Cancelada', 'cancelled'].includes(item.status);
 
   function eventCard(item) {
     const start = Math.max(timeMinutes(item.start), HOURS_START * 60);
@@ -964,9 +967,9 @@
 
   function summaryItems(mode = summaryMode, month = $('#summary-month').value, now = new Date(), undated = summaryUndated) {
     return financialAppointments().filter(item => {
-      if (mode === 'due') return isUnpaid(item) && appointmentEnd(item) < now;
+      if (mode === 'due') return !isCancelled(item) && isUnpaid(item) && appointmentEnd(item) < now;
       if (mode === 'received') return item.financialStatus === 'Pago' && (undated ? !hasPaymentDate(item) : hasPaymentDate(item) && item.payment.date.startsWith(month));
-      return item.date.startsWith(month) && appointmentEnd(item) >= now;
+      return !isCancelled(item) && item.date.startsWith(month) && appointmentEnd(item) >= now;
     });
   }
 
@@ -1365,7 +1368,7 @@
     populateTimeOptions();
     bindEvents();
     bindCalendarSwipe();
-    setView(state.settings.view || 'week');
+    setView(matchMedia('(max-width: 640px)').matches ? 'day' : state.settings.view || 'week');
     setTab('agenda');
     window.setInterval(refreshSummaryStatus, 60000);
     document.addEventListener('visibilitychange', refreshSummaryStatus);

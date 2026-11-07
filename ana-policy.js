@@ -51,11 +51,11 @@
     if (!found) return null;
     return found;
   }
-  function slotAvailable(s, date, time, now, {ignoreId, reservationId} = {}) {
-    const from = stamp(date,time), to = from + HOUR;
+  function slotAvailable(s, date, time, now, {ignoreId, reservationId, duration = POLICY.duration} = {}) {
+    const from = stamp(date,time), to = from + duration * 60000;
     const hour = Number(time.slice(0,2)) + Number(time.slice(3))/60;
     if (from < now + 2 * HOUR) return false;
-    if (!(POLICY.hours[new Date(from).getUTCDay()] || []).some(([a,b]) => hour >= a && hour + 1 <= b)) return false;
+    if (!(POLICY.hours[new Date(from).getUTCDay()] || []).some(([a,b]) => hour >= a && hour + duration / 60 <= b)) return false;
     const overlaps = a => start(a) < to && end(a) > from;
     if (s.appointments.some(a => a.id !== ignoreId && active(a) && overlaps(a)) || s.blocks.some(overlaps)) return false;
     return !s.reservations.some(r => r.id !== reservationId && r.status === 'active' && r.expiresAt > now && overlaps(r));

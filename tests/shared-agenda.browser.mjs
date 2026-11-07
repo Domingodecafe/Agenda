@@ -44,6 +44,14 @@ globalThis.fetch = async (target, options) => {
     return complete({ type: 'message', content: [{ type: 'output_text', text: `Resultado: ${facts.recebidoEmCentavos}` }] });
   }
   if (last.content === 'Consultar Fin') return complete(toolCall('consultar_recebimentos', { mes: '2026-11' }));
+  if (last.content === 'Agendar série') return complete(toolCall('agendar_atendimento', {
+    nome: 'Cliente Série Teste', data: '2099-11-13', horario: '16:00', modalidade: null,
+    frequencia: 'weekly', quantidade: 2, ate: null,
+  }));
+  if (last.content === 'Apagar série') return complete(toolCall('alterar_atendimento', {
+    acao: 'delete', nome: 'Cliente Série Teste', data: '2099-11-13', horario: '16:00', alcance: 'series',
+    nova_data: null, novo_horario: null, modalidade: null, valor: null, duracao: null,
+  }));
   return complete(toolCall('agendar_atendimento', {
     nome: last.content, data: '2099-11-13', horario: '15:00', modalidade: null,
   }));
@@ -101,11 +109,29 @@ try {
     await page.getByRole('button', { name: 'Enviar', exact: true }).click();
   }
   await openChat(phone);
+  for (const viewport of [{ width: 320, height: 640 }, { width: 360, height: 720 },
+    { width: 390, height: 750 }, { width: 720, height: 320 }, { width: 390, height: 320 }]) {
+    await phone.setViewportSize(viewport);
+    await phone.getByRole('textbox', { name: 'Pergunta' }).focus();
+    const fits = await phone.evaluate(() => {
+      const dialog = document.getElementById('agent-chat');
+      const send = document.getElementById('agent-chat-send').getBoundingClientRect();
+      return dialog.scrollWidth <= dialog.clientWidth && send.right <= visualViewport.width + 1 &&
+        send.bottom <= visualViewport.offsetTop + visualViewport.height + 1;
+    });
+    assert.ok(fits, JSON.stringify(viewport));
+  }
+  await phone.setViewportSize({ width: 390, height: 750 });
   await phone.getByRole('button', { name: 'Fin', exact: true }).click();
   await ask(phone, 'Consultar Fin');
   await phone.getByText('Resultado: 320000').waitFor();
   await phone.getByRole('button', { name: 'Ana', exact: true }).click();
   await openChat(pc);
+  assert.ok(await pc.evaluate(() => {
+    const calendar = document.getElementById('calendar').getBoundingClientRect();
+    const chat = document.getElementById('agent-chat').getBoundingClientRect();
+    return calendar.right <= chat.left + 1 && chat.right <= innerWidth;
+  }));
   await Promise.all([ask(phone, 'Geraldinho Teste'), ask(pc, 'Outro Teste')]);
   await Promise.all([phone, pc].map(page => page.locator('[data-role="assistant"]').last().waitFor()));
   assert.equal(snapshot.payload.appointments.length, 84);
@@ -144,6 +170,16 @@ try {
   await winner.getByText('Agenda sincronizada').waitFor();
   assert.equal(snapshot.payload.appointments.length, 84);
   await openChat(winner);
+  await ask(winner, 'Agendar série');
+  await winner.getByText(/Série agendada/).waitFor();
+  assert.equal(snapshot.payload.appointments.length, 86);
+  await ask(winner, 'Apagar série');
+  const confirm = winner.getByRole('button', { name: 'Confirmar exclusão' });
+  await confirm.waitFor();
+  assert.equal(snapshot.payload.appointments.length, 86);
+  await confirm.click();
+  await winner.getByText('2 atendimentos apagados da Agenda.').waitFor();
+  assert.equal(snapshot.payload.appointments.length, 84);
   await winner.context().clearCookies();
   await ask(winner, 'Consultar sessão expirada');
   await winner.getByText('Entrar novamente em outra aba').waitFor();

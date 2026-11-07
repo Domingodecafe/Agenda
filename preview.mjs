@@ -85,7 +85,12 @@ export const server = http.createServer(async (req, res) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'no-referrer');
   res.setHeader('Content-Security-Policy', "default-src 'self'; connect-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'");
-  if (access && req.url === '/healthz' && req.method === 'GET') { res.writeHead(200).end('ok'); return; }
+  if (access && req.url === '/healthz' && req.method === 'GET') {
+    const revision = process.env.RENDER_GIT_COMMIT;
+    if (/^[a-f0-9]{40}$/.test(revision || '')) res.setHeader('X-Agenda-Commit', revision);
+    res.writeHead(200).end('ok');
+    return;
+  }
   if (req.headers.host !== url.host) {
     res.writeHead(403).end(); return;
   }

@@ -3,6 +3,7 @@ import './ana-policy.js';
 import './fin-core.js';
 import './agent-chat.js';
 import { createFixture } from './hosted-fixture.mjs';
+import { prepareSeries, prepareChange } from './ana-agenda-actions.mjs';
 
 export class AgendaConflict extends Error {}
 
@@ -60,6 +61,7 @@ const isSnapshot = state => state && Array.isArray(state.clients) && Array.isArr
     FinCore.validDate(item.date) && slot(item.start) && slot(item.end) && item.start < item.end);
 
 export function createSharedAgenda(store, { now = () => new Date() } = {}) {
+  const confirmations = new Map();
   async function read(revision) {
     if (revision && (await store.read(false))?.revision === revision) return null;
     let snapshot = await store.read();
@@ -84,25 +86,48 @@ export function createSharedAgenda(store, { now = () => new Date() } = {}) {
     return { revision: await store.write(revision, state), state };
   }
 
+  async function modify(prepare) {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const { state, revision } = await read();
+      const { state: next, removal, ...result } = prepare(state);
+      if (removal) {
+        for (const [id, plan] of confirmations) if (plan.expires <= Date.now()) confirmations.delete(id);
+        if (confirmations.size >= 32) confirmations.delete(confirmations.keys().next().value);
+        const token = randomUUID();
+        confirmations.set(token, { revision, ids: new Set(removal), expires: Date.now() + 300000 });
+        return { ...result, confirmation: token };
+      }
+      if (!next) return result;
+      try {
+        await store.write(revision, next);
+        return { ...result, changed: true };
+      } catch (error) {
+        if (!(error instanceof AgendaConflict)) throw error;
+      }
+    }
+    throw new AgendaConflict();
+  }
+
   return {
-    read,
-    write,
+    read, write,
     async consult(agent, period) {
       return AgentChat.consult(agent, period, (await read()).state, now());
     },
-    async book(request) {
-      for (let attempt = 0; attempt < 3; attempt++) {
-        const { state, revision } = await read();
-        const booking = AgentChat.prepareBooking(state, request, now(), randomUUID);
-        if (!booking.state) return { reply: booking.reply, details: booking.details };
-        try {
-          await store.write(revision, booking.state);
-          return { reply: booking.reply, details: booking.details, appointment: booking.appointment };
-        } catch (error) {
-          if (!(error instanceof AgendaConflict)) throw error;
-        }
+    book: request => modify(state => prepareSeries(state, request, now())),
+    change: request => modify(state => prepareChange(state, request, now())),
+    async confirmRemoval(token) {
+      const plan = confirmations.get(token);
+      confirmations.delete(token);
+      if (!plan || plan.expires <= Date.now()) return { reply: 'A confirmação expirou. Peça a exclusão novamente para revisar.' };
+      try {
+        const { revision, state } = await read();
+        if (revision !== plan.revision) throw new AgendaConflict();
+        await store.write(revision, { ...state, appointments: state.appointments.filter(item => !plan.ids.has(item.id)) });
+      } catch (error) {
+        if (!(error instanceof AgendaConflict)) throw error;
+        return { reply: 'A Agenda mudou desde a revisão. Peça a exclusão novamente para conferir os registros.' };
       }
-      throw new AgendaConflict();
+      return { changed: true, reply: `${plan.ids.size} ${plan.ids.size === 1 ? 'atendimento apagado' : 'atendimentos apagados'} da Agenda.` };
     },
   };
 }

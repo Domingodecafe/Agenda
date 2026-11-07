@@ -64,7 +64,7 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
-        signal: AbortSignal.timeout(globalThis.AnaEnvironment?.shared ? 60000 : 25000),
+        signal: AbortSignal.timeout(globalThis.AnaEnvironment?.shared ? 90000 : 50000),
       });
     } catch {
       throw new Error('Sem conexão com a Agenda ou o servidor demorou para responder. Sua pergunta foi preservada.');
@@ -96,6 +96,8 @@
     const login = byId('agent-chat-login');
     const intro = byId('agent-chat-intro');
     const example = byId('agent-chat-example');
+    const examples = example.parentElement;
+    const desktop = matchMedia('(min-width: 1000px)');
     const selectors = [...dialog.querySelectorAll('[data-agent]')];
     const conversations = Object.fromEntries(['ana', 'fin'].map(agent => [
       agent, { messages: [], draft: '', busy: false, status: '', expired: false },
@@ -106,7 +108,8 @@
       const thread = conversations[selected];
       const name = selected === 'ana' ? 'Ana' : 'Fin';
       log.setAttribute('aria-label', 'Conversa com ' + name);
-      log.replaceChildren(...thread.messages.map(({ role, content, details, appointment }) => {
+      log.replaceChildren(...thread.messages.map(message => {
+        const { role, content, details, appointment, confirmation } = message;
         const entry = document.createElement('div');
         entry.className = 'agent-chat-message';
         entry.dataset.role = role;
@@ -132,15 +135,43 @@
           });
           entry.append(go);
         }
+        if (confirmation) {
+          const confirm = document.createElement('button');
+          confirm.type = 'button';
+          confirm.className = 'danger-button';
+          confirm.textContent = 'Confirmar exclusão';
+          confirm.disabled = thread.busy;
+          confirm.addEventListener('click', async () => {
+            if (thread.busy || !message.confirmation) return;
+            thread.busy = true;
+            thread.status = 'Confirmando exclusão…';
+            render();
+            try {
+              const result = await send({ confirmation });
+              message.confirmation = null;
+              thread.messages.push({ role: 'assistant', content: result.reply });
+              thread.status = '';
+              if (result.changed) await refresh?.();
+            } catch (error) {
+              thread.status = error.message;
+              thread.expired = error.status === 401;
+            } finally {
+              thread.busy = false;
+              if (conversations[selected] === thread) render();
+            }
+          });
+          entry.append(confirm);
+        }
         return entry;
       }));
       log.scrollTop = log.scrollHeight;
       input.value = thread.draft;
-      input.disabled = submit.disabled = thread.busy;
+      input.readOnly = submit.disabled = thread.busy;
+      examples.hidden = thread.messages.length > 0 || thread.busy;
       input.placeholder = selected === 'ana' ? 'Quais horários estão livres amanhã?' : 'Quanto recebi este mês?';
       status.textContent = thread.status;
       login.hidden = !thread.expired;
-      intro.textContent = selected === 'ana' ? 'Consulte horários livres ou peça para agendar uma sessão.' : 'Consulte os recebimentos da sua Agenda por mês.';
+      intro.textContent = selected === 'ana' ? 'Consulte horários ou peça para agendar e alterar atendimentos.' : 'Consulte os recebimentos da sua Agenda por mês.';
       example.textContent = input.placeholder;
       example.disabled = thread.busy;
       for (const button of selectors) {
@@ -151,12 +182,22 @@
     }
 
     const fitViewport = () => {
-      if (dialog.open && globalThis.visualViewport) dialog.style.setProperty('--chat-viewport', visualViewport.height + 'px');
+      if (dialog.open && globalThis.visualViewport) {
+        dialog.style.setProperty('--chat-viewport', visualViewport.height + 'px');
+        dialog.style.setProperty('--chat-offset', visualViewport.offsetTop + 'px');
+      }
     };
     globalThis.visualViewport?.addEventListener('resize', fitViewport);
+    globalThis.visualViewport?.addEventListener('scroll', fitViewport);
+    desktop.addEventListener('change', () => {
+      if (dialog.open) { dialog.close(); showChat(); }
+    });
     function showChat() {
+      if (dialog.open) return;
       render();
-      dialog.showModal();
+      if (desktop.matches) dialog.show();
+      else dialog.showModal();
+      log.scrollTop = log.scrollHeight;
       fitViewport();
     }
     open.addEventListener('click', showChat);
@@ -169,6 +210,9 @@
       input.focus();
     });
     byId('agent-chat-close').addEventListener('click', () => dialog.close());
+    dialog.addEventListener('keydown', event => {
+      if (event.key === 'Escape' && desktop.matches) dialog.close();
+    });
     input.addEventListener('input', () => { conversations[selected].draft = input.value; });
     for (const button of selectors) button.addEventListener('click', () => {
       selected = button.dataset.agent;
@@ -205,11 +249,11 @@
           response = await send({ id: response.id, result });
         }
         thread.messages.push({ role: 'user', content: message }, {
-          role: 'assistant', content: response.reply, details, appointment: response.appointment,
+          role: 'assistant', content: response.reply, details, appointment: response.appointment, confirmation: response.confirmation,
         });
         thread.draft = '';
         thread.status = '';
-        if (response.appointment) await refresh?.();
+        if (response.changed || response.appointment) await refresh?.();
       } catch (error) {
         thread.status = error.message;
         thread.expired = error.status === 401;

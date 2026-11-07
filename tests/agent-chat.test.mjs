@@ -72,6 +72,24 @@ test('Diagnóstico da OpenAI distingue chave, acesso ao modelo e saldo sem expor
   }
 });
 
+test('Chat repete somente resposta incompleta por tokens e bloqueia fragmentos internos', async t => {
+  const incomplete = () => Response.json({ status: 'incomplete', incomplete_details: { reason: 'max_output_tokens' },
+    output: [{ type: 'function_call', name: 'agendar_atendimento', arguments: '{' }] });
+  const { post, requests } = await harness(t, [
+    incomplete(), [message('Qual é a data?')],
+    incomplete(), incomplete(),
+    [message('Vou agendar. </commentary to=functions.agendar_atendimento')],
+  ]);
+  const input = { agent: 'ana', message: 'Agende uma sessão', history: [] };
+  assert.deepEqual(await post(input), { status: 200, body: { reply: 'Qual é a data?' } });
+  assert.ok(requests[1].max_output_tokens > requests[0].max_output_tokens);
+  assert.match((await post(input)).body.error, /limite de geração/);
+  const leaked = await post(input);
+  assert.equal(leaked.status, 502);
+  assert.doesNotMatch(leaked.body.error, /commentary|to=functions/);
+  assert.equal(requests.length, 5);
+});
+
 test('Só a Ana pode solicitar um agendamento completo e o servidor não anuncia a gravação', async t => {
   const booking = (args) => ({
     type: 'function_call', name: 'agendar_atendimento', call_id: 'call_booking', arguments: JSON.stringify(args),

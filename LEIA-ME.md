@@ -98,6 +98,12 @@ pagamentos são compartilhados. O livro de despesas do Fin é local. Sem
 internet, o app avisa e bloqueia a gravação. O cenário local já existente
 em cada navegador não é importado para o Supabase.
 
+No chat da Ana, você pode pedir um atendimento avulso, uma série semanal,
+quinzenal ou mensal, uma remarcação ou um cancelamento. Identifique o cliente,
+a sessão original e o alcance da alteração. A Ana valida a série inteira
+antes de salvar. Para apagar sessões, confira a seleção e clique em
+**Confirmar exclusão**. O cancelamento preserva os pagamentos registrados.
+
 Rode `node --test tests/*.test.mjs` na raiz para verificar a cópia. Use um perfil
 de navegador de teste e dados fictícios. Se precisar transferir registros locais,
 use o backup do aplicativo. O Git leva os arquivos versionados do projeto.
