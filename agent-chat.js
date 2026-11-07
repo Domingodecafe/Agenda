@@ -51,6 +51,7 @@
       recurrence: 'none', seriesId: null, status: 'Agendado', financialStatus: 'A receber', createdAt: now.toISOString() };
     return {
       state: { ...state, clients: existing ? state.clients : [...state.clients, client], appointments: [...state.appointments, appointment] },
+      appointment: { id: appointment.id },
       reply: `Atendimento agendado para ${client.name} em ${date.split('-').reverse().join('/')}, das ${start} às ${end}.`,
       details: `${modality} · 60 min · R$ 200,00 · A receber`,
     };
@@ -63,13 +64,13 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
-        signal: AbortSignal.timeout(25000),
+        signal: AbortSignal.timeout(globalThis.AnaEnvironment?.shared ? 60000 : 25000),
       });
     } catch {
-      throw new Error('Sem conexão com a prévia local. Confira o servidor e tente novamente.');
+      throw new Error('Sem conexão com a Agenda ou o servidor demorou para responder. Sua pergunta foi preservada.');
     }
     const result = await response.json();
-    if (!response.ok) throw new Error(result.error);
+    if (!response.ok) throw Object.assign(new Error(result.error), { status: response.status });
     return result;
   }
 
@@ -82,18 +83,22 @@
     return `Recebimentos em ${period.split('-').reverse().join('/')} · ${value}`;
   }
 
-  function install(getAgenda, book) {
+  function install(getAgenda, book, { refresh, openAppointment } = {}) {
     const byId = id => document.getElementById(id);
     const dialog = byId('agent-chat');
     if (!dialog) return;
     const open = byId('agent-chat-open');
+    const openNav = byId('agent-chat-nav');
     const input = byId('agent-chat-message');
     const submit = byId('agent-chat-send');
     const log = byId('agent-chat-log');
     const status = byId('agent-chat-status');
+    const login = byId('agent-chat-login');
+    const intro = byId('agent-chat-intro');
+    const example = byId('agent-chat-example');
     const selectors = [...dialog.querySelectorAll('[data-agent]')];
     const conversations = Object.fromEntries(['ana', 'fin'].map(agent => [
-      agent, { messages: [], draft: '', busy: false, status: '' },
+      agent, { messages: [], draft: '', busy: false, status: '', expired: false },
     ]));
     let selected = 'ana';
 
@@ -101,9 +106,10 @@
       const thread = conversations[selected];
       const name = selected === 'ana' ? 'Ana' : 'Fin';
       log.setAttribute('aria-label', 'Conversa com ' + name);
-      log.replaceChildren(...thread.messages.map(({ role, content, details }) => {
+      log.replaceChildren(...thread.messages.map(({ role, content, details, appointment }) => {
         const entry = document.createElement('div');
         entry.className = 'agent-chat-message';
+        entry.dataset.role = role;
         const author = document.createElement('strong');
         author.textContent = role === 'user' ? 'Você' : name;
         const text = document.createElement('p');
@@ -114,6 +120,18 @@
           facts.textContent = details;
           entry.append(facts);
         }
+        if (appointment && openAppointment) {
+          const go = document.createElement('button');
+          go.type = 'button';
+          go.className = 'secondary-button';
+          go.textContent = 'Ver na Agenda';
+          go.addEventListener('click', async () => {
+            await refresh?.();
+            dialog.close();
+            openAppointment(appointment.id);
+          });
+          entry.append(go);
+        }
         return entry;
       }));
       log.scrollTop = log.scrollHeight;
@@ -121,6 +139,10 @@
       input.disabled = submit.disabled = thread.busy;
       input.placeholder = selected === 'ana' ? 'Quais horários estão livres amanhã?' : 'Quanto recebi este mês?';
       status.textContent = thread.status;
+      login.hidden = !thread.expired;
+      intro.textContent = selected === 'ana' ? 'Consulte horários livres ou peça para agendar uma sessão.' : 'Consulte os recebimentos da sua Agenda por mês.';
+      example.textContent = input.placeholder;
+      example.disabled = thread.busy;
       for (const button of selectors) {
         const active = button.dataset.agent === selected;
         button.classList.toggle('active', active);
@@ -128,12 +150,24 @@
       }
     }
 
-    open.addEventListener('click', () => {
+    const fitViewport = () => {
+      if (dialog.open && globalThis.visualViewport) dialog.style.setProperty('--chat-viewport', visualViewport.height + 'px');
+    };
+    globalThis.visualViewport?.addEventListener('resize', fitViewport);
+    function showChat() {
       render();
       dialog.showModal();
+      fitViewport();
+    }
+    open.addEventListener('click', showChat);
+    openNav.addEventListener('click', showChat);
+    open.disabled = false;
+    openNav.disabled = false;
+    example.addEventListener('click', () => {
+      conversations[selected].draft = example.textContent;
+      input.value = example.textContent;
       input.focus();
     });
-    open.disabled = false;
     byId('agent-chat-close').addEventListener('click', () => dialog.close());
     input.addEventListener('input', () => { conversations[selected].draft = input.value; });
     for (const button of selectors) button.addEventListener('click', () => {
@@ -151,10 +185,14 @@
       thread.draft = message;
       thread.busy = true;
       thread.status = 'Consultando o agente…';
+      thread.expired = false;
       render();
       try {
         let response = await send({ agent, message, history });
-        let details;
+        let details = response.details;
+        if (response.consultation) {
+          details = describe(agent, response.consultation.period, response.consultation.result);
+        }
         if (agent === 'ana' && response.booking) {
           try { response = await book(response.booking); }
           catch (error) { throw new Error(error.message || 'Não foi possível salvar o atendimento.'); }
@@ -166,11 +204,15 @@
           details = describe(agent, response.period, result);
           response = await send({ id: response.id, result });
         }
-        thread.messages.push({ role: 'user', content: message }, { role: 'assistant', content: response.reply, details });
+        thread.messages.push({ role: 'user', content: message }, {
+          role: 'assistant', content: response.reply, details, appointment: response.appointment,
+        });
         thread.draft = '';
         thread.status = '';
+        if (response.appointment) await refresh?.();
       } catch (error) {
         thread.status = error.message;
+        thread.expired = error.status === 401;
       } finally {
         thread.busy = false;
         if (selected === agent) render();

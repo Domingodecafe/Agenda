@@ -4,6 +4,7 @@
   const environment = Object.freeze({
     origin: globalThis.AgendaHostedConfig?.origin || 'http://127.0.0.1:43188',
     hosted: Boolean(globalThis.AgendaHostedConfig),
+    shared: globalThis.AgendaHostedConfig?.shared === true,
     basePath: '/ana-dev/',
     networkEnabled: false,
     database: 'ana-dev-agenda-db-v1',
@@ -16,7 +17,7 @@
     draftPrefix: 'ana-dev-sync-draft-v1-',
     archivePrefix: 'ana-dev-sync-archive-v1-',
     cloudUrl: 'https://dpdxzbbzymkygutwefww.supabase.co',
-    cacheName: 'ana-dev-pwa-v10',
+    cacheName: 'ana-dev-pwa-v11',
     isAllowed(location = globalThis.location) {
       return location.origin === this.origin && location.pathname.startsWith(this.basePath);
     },

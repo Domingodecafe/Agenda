@@ -68,7 +68,7 @@ async function readBody(req) {
   catch { throw new ChatError(400, 'Mensagem inválida.'); }
 }
 
-export function createAgentChat({ origin, apiKey, model, fetchResponse = fetch }) {
+export function createAgentChat({ origin, apiKey, model, fetchResponse = fetch, agenda }) {
   const pending = new Map();
   let active = 0;
 
@@ -140,25 +140,37 @@ export function createAgentChat({ origin, apiKey, model, fetchResponse = fetch }
           ![null, 'Presencial', 'Online'].includes(modalidade)) {
         throw new ChatError(502, 'O agente não identificou dados válidos para o agendamento.');
       }
-      return { booking: { name: nome.trim(), date: data, start: horario, modality: modalidade || 'Presencial' } };
+      const booking = { name: nome.trim(), date: data, start: horario, modality: modalidade || 'Presencial' };
+      return agenda ? agenda.book(booking) : { booking };
     }
     if (call.name !== tool.name) throw new ChatError(502, 'Consulta do agente inválida.');
     const period = args?.[tool.field];
     if (typeof period !== 'string' || !(agent === 'ana' ? validDate(period) : month.test(period))) {
       throw new ChatError(502, 'Período da consulta inválido.');
     }
+    const task = { agent, period, input, output, instructions, callId: call.call_id };
+    if (agenda) {
+      const result = await agenda.consult(agent, period);
+      return { ...await explain(task, result), consultation: { period, result } };
+    }
     if (pending.size >= 32) throw new ChatError(429, 'Há consultas demais em andamento. Tente novamente em instantes.');
     const id = randomUUID();
     const timer = setTimeout(() => pending.delete(id), 60000);
     timer.unref();
-    pending.set(id, { agent, period, timer, input, output, instructions, callId: call.call_id });
+    pending.set(id, { ...task, timer });
     return { id, period };
   }
 
   async function finish({ id, result }) {
     const task = pending.get(id);
     if (!task) throw new ChatError(409, 'A consulta expirou. Envie a pergunta novamente.');
-    const { agent, period, timer, input, output, instructions, callId } = task;
+    return explain(task, result, () => {
+      pending.delete(id);
+      clearTimeout(task.timer);
+    });
+  }
+
+  async function explain({ agent, period, input, output, instructions, callId }, result, consume) {
     let facts;
     if (agent === 'ana' && Array.isArray(result?.starts) && result.starts.length <= 24 &&
         result.starts.every(value => typeof value === 'string' && time.test(value))) {
@@ -168,8 +180,7 @@ export function createAgentChat({ origin, apiKey, model, fetchResponse = fetch }
     } else {
       throw new ChatError(400, 'Resultado da consulta inválido.');
     }
-    pending.delete(id);
-    clearTimeout(timer);
+    consume?.();
     const final = await respond([
       ...input, ...output,
       { type: 'function_call_output', call_id: callId, output: JSON.stringify(facts) },
@@ -194,10 +205,11 @@ export function createAgentChat({ origin, apiKey, model, fetchResponse = fetch }
     try {
       const body = await readBody(req);
       if (!body || typeof body !== 'object' || Array.isArray(body)) throw new ChatError(400, 'Mensagem inválida.');
+      if (agenda && Object.hasOwn(body, 'id')) throw new ChatError(400, 'O servidor consulta a agenda compartilhada diretamente.');
       send(200, await (Object.hasOwn(body, 'id') ? finish(body) : start(body)));
     } catch (error) {
       if (error instanceof ChatError) send(error.status, { error: error.message });
-      else send(502, { error: 'Não foi possível consultar o agente. Tente novamente.' });
+      else send(502, { error: 'Não foi possível concluir a ação. Confira a Agenda antes de tentar novamente.' });
     } finally {
       active--;
     }

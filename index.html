@@ -2,13 +2,13 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content">
   <meta name="theme-color" content="#101416">
   <meta name="description" content="Ana em desenvolvimento. Use exclusivamente dados fictícios.">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css?v=ana-dev-8">
-  <link rel="stylesheet" href="agent-chat.css">
+  <link rel="stylesheet" href="agent-chat.css?v=ana-dev-11">
   <title>Ana DEV — Agenda de testes</title>
 </head>
 <body>
@@ -26,6 +26,7 @@
     </header>
 
     <aside id="update-notice" class="update-notice hidden" role="status"><span id="update-message">Atualização disponível</span><button id="apply-update" class="secondary-button" type="button">Atualizar</button></aside>
+    <p id="agenda-sync-status" class="agenda-sync-status" role="status"></p>
     <main>
       <section id="agenda-screen" class="screen active" aria-label="Agenda">
         <div class="toolbar surface">
@@ -72,7 +73,8 @@
     <nav class="bottom-nav" aria-label="Navegação principal">
       <button data-tab="agenda" class="active" type="button"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M7 3v4m10-4v4M3 11h18m-13 4h2"/></svg></span><span>Agenda</span></button>
       <button data-tab="clients" type="button"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 21v-2a6 6 0 0 1 12 0v2M16 5a3 3 0 0 1 0 6m2 4a5 5 0 0 1 3 5"/></svg></span><span>Clientes</span></button>
-      <button data-tab="summary" type="button"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 20v-6m7 6V9m7 11V4"/></svg></span><span>Resumo</span></button>
+      <button data-tab="summary" type="button"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 20v-6m7 6V9m7 11V4"/></svg></span><span>Financeiro</span></button>
+      <button id="agent-chat-nav" type="button" aria-haspopup="dialog" aria-label="Abrir chat dos agentes" disabled><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-5 4zM8 10h8"/></svg></span><span>Chat</span></button>
     </nav>
   </div>
 
@@ -83,16 +85,18 @@
         <button id="agent-chat-close" class="close-button" type="button" aria-label="Fechar chat">×</button>
       </div>
       <div class="segmented" role="group" aria-label="Agente">
-        <button type="button" data-agent="ana" aria-pressed="true" class="active">Ana</button>
-        <button type="button" data-agent="fin" aria-pressed="false">Fin</button>
+        <button type="button" data-agent="ana" aria-label="Ana" aria-pressed="true" class="active">Ana <small>Secretaria</small></button>
+        <button type="button" data-agent="fin" aria-label="Fin" aria-pressed="false">Fin <small>Financeiro</small></button>
       </div>
       <p class="agent-chat-note">Use dados fictícios. As mensagens e os resultados das consultas são enviados à OpenAI.</p>
+      <div class="agent-chat-examples"><p id="agent-chat-intro"></p><button id="agent-chat-example" class="secondary-button" type="button"></button></div>
       <div id="agent-chat-log" class="agent-chat-log" role="log" aria-label="Conversa"></div>
       <form id="agent-chat-form">
         <label class="field" for="agent-chat-message"><span>Pergunta</span><input id="agent-chat-message" maxlength="1000" autocomplete="off" required></label>
         <button id="agent-chat-send" class="primary-button" type="submit">Enviar</button>
       </form>
       <p id="agent-chat-status" role="status"></p>
+      <a id="agent-chat-login" href="./login" target="_blank" rel="noopener" hidden>Entrar novamente em outra aba</a>
     </div>
   </dialog>
 
@@ -173,12 +177,12 @@
   </dialog>
   <dialog id="payment-history-dialog" class="modal small-modal payment-history-dialog"><form method="dialog"><div class="modal-header"><div><span class="eyebrow">AUDITORIA</span><h2>Histórico do pagamento</h2></div><button class="close-button" value="cancel" aria-label="Fechar">×</button></div><div id="payment-history-list" class="payment-history-list"></div><div class="modal-actions"><span></span><button class="primary-button" value="cancel">Fechar</button></div></form></dialog>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script src="ana-environment.js?v=ana-dev-10" defer></script>
+  <script src="ana-environment.js?v=ana-dev-11" defer></script>
   <script src="ana-sync-engine.js?v=ana-dev-8" defer></script>
   <script src="cloud-sync.js?v=ana-dev-8" defer></script>
   <script src="ana-policy.js?v=ana-dev-8" defer></script>
   <script src="fin-core.js?v=ana-dev-8" defer></script>
-  <script src="agent-chat.js?v=ana-dev-10" defer></script>
-  <script src="app.js?v=ana-dev-10" defer></script>
+  <script src="agent-chat.js?v=ana-dev-11" defer></script>
+  <script src="app.js?v=ana-dev-11" defer></script>
 </body>
 </html>

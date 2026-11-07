@@ -30,6 +30,12 @@
     } finally { db.close(); }
   }
   async function agenda() {
+    if (env.shared) {
+      const response = await fetch('./api/agenda', { signal: AbortSignal.timeout(20000) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error);
+      return FinCore.project(result.state);
+    }
     let value;
     if (localStorage.getItem(env.fallbackMarker) === 'active') {
       const raw = localStorage.getItem(env.fallbackKey);

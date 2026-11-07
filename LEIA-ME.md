@@ -76,6 +76,28 @@ endereço HTTPS fornecido. A primeira abertura em um navegador recebe 20
 clientes e 83 sessões fictícias. As edições permanecem nesse navegador,
 independentes da Agenda local do PC. A versão online requer internet.
 
+### Agenda compartilhada 1.0
+
+Valide primeiro em um serviço Render de teste separado. No projeto Supabase
+DEV da Secretaria Ana, verifique se `agenda_snapshots` e
+`write_agenda_snapshot` já existem e têm as permissões do schema em
+`supabase/ana-schema.sql`. Cadastre um usuário Auth exclusivo, com e-mail
+confirmado e sem dados associados. A primeira leitura cria somente o cenário
+fictício nesse usuário. Uma base existente de outra etapa é recusada.
+
+Além das variáveis da seção anterior, configure no serviço de teste:
+
+- `AGENDA_SHARED=true`
+- `AGENDA_SUPABASE_URL` com o endereço HTTPS do projeto DEV.
+- `AGENDA_SUPABASE_PUBLISHABLE_KEY` com a chave publishable do projeto.
+- `AGENDA_SUPABASE_EMAIL` e `AGENDA_SUPABASE_PASSWORD` com as credenciais
+  do usuário Auth dedicado, inseridas diretamente no painel do Render.
+
+Abra o mesmo endereço de teste nos dois aparelhos. Clientes, sessões e
+pagamentos são compartilhados. O livro de despesas do Fin é local. Sem
+internet, o app avisa e bloqueia a gravação. O cenário local já existente
+em cada navegador não é importado para o Supabase.
+
 Rode `node --test tests/*.test.mjs` na raiz para verificar a cópia. Use um perfil
 de navegador de teste e dados fictícios. Se precisar transferir registros locais,
 use o backup do aplicativo. O Git leva os arquivos versionados do projeto.

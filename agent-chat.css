@@ -1,11 +1,19 @@
-.agent-chat-content { padding: 20px; }
+.agenda-sync-status { color: var(--muted); font-size: .85rem; margin: 0 auto 12px; max-width: 1480px; }
+.agenda-sync-status:empty { display: none; }
+.agent-chat-content { padding: 20px; display: flex; flex-direction: column; max-height: min(88vh, var(--chat-viewport, 88dvh)); }
+.agent-chat .modal-header { flex-shrink: 0; }
 .agent-chat .segmented { width: 100%; }
 .agent-chat .segmented button { flex: 1; min-height: 40px; }
+.agent-chat .segmented small { display: block; font-weight: 400; }
+.agent-chat-examples { font-size: .875rem; margin-bottom: 12px; }
+.agent-chat-examples p { margin: 0 0 8px; }
+.agent-chat-examples button { text-align: left; min-height: 40px; }
 .agent-chat-note, #agent-chat-status { color: var(--muted); font-size: .85rem; }
 .agent-chat-log {
   display: grid;
   gap: 10px;
-  max-height: min(42vh, 420px);
+  min-height: 0;
+  max-height: 420px;
   overflow-y: auto;
   overflow-wrap: anywhere;
 }
@@ -15,14 +23,18 @@
   border-radius: 10px;
 }
 .agent-chat-message p { margin: 5px 0; white-space: pre-wrap; }
-.agent-chat-message small { color: var(--accent); }
+.agent-chat-message[data-role="user"] { margin-inline-start: 18px; background: var(--surface-2, var(--surface)); }
+.agent-chat-message small { display: block; color: var(--accent); }
+.agent-chat-message button { margin-top: 10px; }
 #agent-chat-form { display: flex; align-items: flex-end; gap: 8px; padding: 14px 0 0; }
 #agent-chat-form .field { flex: 1; min-width: 0; margin: 0; }
 #agent-chat-message { font-size: 16px; }
 #agent-chat-send, #agent-chat-open { min-height: 44px; }
 #agent-chat-status { min-height: 1.2em; margin-bottom: 0; }
 @media (max-width: 640px) {
+  .agenda-sync-status { padding-inline: 16px; }
+  .agent-chat.modal { max-height: var(--chat-viewport, 95dvh); }
   .agent-chat-content { padding: 16px 16px max(16px, env(safe-area-inset-bottom)); }
-  .agent-chat-log { max-height: 36dvh; }
+  .agent-chat-content:has(#agent-chat-message:focus) .agent-chat-examples { display: none; }
   .topbar .header-actions { flex-wrap: wrap; justify-content: flex-end; }
 }

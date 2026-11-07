@@ -15,7 +15,7 @@ export function hostedAccess({ origin, password }) {
   let attempts = 0;
   let retryAfter = 0;
   return async (req, res, path) => {
-    const isChat = path === '/ana-dev/api/chat';
+    const isApi = path.startsWith('/ana-dev/api/');
     // O formulário precisa enviar Origin no POST, sem enviar referência a outros sites.
     if (path === '/ana-dev/login') res.setHeader('Referrer-Policy', 'same-origin');
     const value = req.headers.cookie?.split(';').map(part => part.trim()).find(part => part.startsWith(cookie + '='))?.slice(cookie.length + 1);
@@ -64,7 +64,7 @@ export function hostedAccess({ origin, password }) {
       return false;
     }
     if (authenticated) return true;
-    if (isChat) res.writeHead(401, { 'Content-Type': 'application/json; charset=utf-8' })
+    if (isApi) res.writeHead(401, { 'Content-Type': 'application/json; charset=utf-8' })
       .end(JSON.stringify({ error: 'Sua sessão terminou. Recarregue a Agenda e entre novamente.' }));
     else if (path === '/' || path === '/ana-dev/' || path.endsWith('.html')) res.writeHead(303, { Location: '/ana-dev/login' }).end();
     else res.writeHead(401).end();

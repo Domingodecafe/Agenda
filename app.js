@@ -14,6 +14,7 @@
   const $$ = selector => [...document.querySelectorAll(selector)];
   const emptyState = { clients: [], appointments: [], settings: { view: 'week' } };
   let state = structuredClone(emptyState);
+  let sharedSnapshot, sharedReading, sharedSaving;
   let syncMetadata = null;
   let cloudInstalled = false;
   let localWrites = Promise.resolve();
@@ -62,6 +63,7 @@
   }
 
   async function loadState() {
+    if (environment.shared) return refreshSharedAgenda();
     try {
       if (localStorage.getItem(environment.fallbackMarker) === 'active') throw new Error('Fallback Ana ativo');
       const db = await openDatabase();
@@ -87,12 +89,97 @@
   }
 
   function saveState() {
+    if (environment.shared) return saveSharedAgenda();
     const snapshot = structuredClone(state);
     const operation = cloudInstalled ? window.AnaCloud.localChanged(snapshot) : persistState(snapshot);
     pendingSaves.add(operation);
     operation.then(() => pendingSaves.delete(operation), () => pendingSaves.delete(operation));
     return operation;
   }
+
+  function sharedStatus(message) {
+    $('#agenda-sync-status').textContent = message;
+  }
+
+  async function sharedRequest(options = {}, query = '') {
+    if (!navigator.onLine) throw new Error('Sem internet. A Agenda compartilhada só grava quando estiver online.');
+    let response;
+    try { response = await fetch('./api/agenda' + query, { ...options, signal: AbortSignal.timeout(20000) }); }
+    catch { throw new Error('Sem conexão com a Agenda compartilhada. Tente novamente.'); }
+    if (response.status === 304) return null;
+    const result = await response.json();
+    if (!response.ok) throw Object.assign(new Error(result.error), { status: response.status });
+    return result;
+  }
+
+  function acceptSharedAgenda(snapshot) {
+    const settings = sharedSnapshot ? state.settings : snapshot.state.settings;
+    sharedSnapshot = snapshot;
+    state = structuredClone(snapshot.state);
+    state.settings = { ...settings };
+  }
+
+  function refreshSharedAgenda(force = false) {
+    if (sharedSaving && !force) return;
+    if (sharedReading) return sharedReading;
+    const editing = () => document.querySelector('dialog[open]:not(#agent-chat)');
+    if (!force && (document.hidden || editing())) return;
+    const revision = sharedSnapshot?.revision || 0;
+    sharedReading = sharedRequest({}, '?revision=' + (force ? 0 : revision)).then(snapshot => {
+      if (snapshot && (!sharedSaving || force) && (!editing() || force) && snapshot.revision >= revision &&
+          snapshot.revision >= (sharedSnapshot?.revision || 0)) {
+        acceptSharedAgenda(snapshot);
+        renderCalendar();
+        if (activeTab === 'clients') renderClients();
+        if (activeTab === 'summary') renderSummary();
+      }
+      sharedStatus('Agenda sincronizada');
+    }).catch(error => sharedStatus(error.message)).finally(() => { sharedReading = undefined; });
+    return sharedReading;
+  }
+
+  async function saveSharedAgenda() {
+    if (!sharedSnapshot) {
+      state = { ...structuredClone(emptyState), settings: state.settings };
+      throw new Error('Aguarde a Agenda carregar antes de salvar.');
+    }
+    const snapshot = sharedSnapshot;
+    const draft = structuredClone(state);
+    if (sharedSaving) {
+      state = { ...structuredClone(snapshot.state), settings: state.settings };
+      throw new Error('Já estamos salvando uma alteração. Aguarde e tente novamente.');
+    }
+    draft.settings = snapshot.state.settings;
+    sharedStatus('Salvando…');
+    sharedSaving = true;
+    try {
+      acceptSharedAgenda(await sharedRequest({
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ revision: snapshot.revision, state: draft }),
+      }));
+      sharedStatus('Agenda sincronizada');
+    } catch (error) {
+      acceptSharedAgenda(snapshot);
+      sharedStatus(error.message);
+      if (error.status === 409) {
+        $$('dialog[open]:not(#agent-chat)').forEach(dialog => dialog.close());
+        await refreshSharedAgenda(true);
+      }
+      throw error;
+    } finally {
+      sharedSaving = false;
+    }
+  }
+
+  const handleEdit = action => async event => {
+    if (environment.shared && (sharedSaving || !sharedSnapshot || !navigator.onLine)) {
+      event.preventDefault();
+      showToast(sharedSaving ? 'Aguarde o salvamento atual.' : 'Conecte-se e aguarde a Agenda carregar para salvar.');
+      return;
+    }
+    try { await action(event); }
+    catch (error) { showToast(error.message || 'Não foi possível salvar.'); }
+  };
 
   function persistState(snapshot = structuredClone(state), metadata = syncMetadata) {
     const envelope = { anaLocalVersion: 1, state: structuredClone(snapshot), sync: structuredClone(metadata) };
@@ -123,6 +210,7 @@
   }
 
   async function bookFromChat(request) {
+    if (environment.shared) throw new Error('O agendamento precisa ser salvo pelo servidor da Agenda compartilhada.');
     if (environment.networkEnabled !== false) throw new Error('O agendamento pelo chat está disponível apenas na Agenda DEV local.');
     const operation = localWrites.then(async () => {
       const prepare = value => {
@@ -170,7 +258,7 @@
       renderCalendar();
       if (activeTab === 'clients') renderClients();
       if (activeTab === 'summary') renderSummary();
-      return { reply: booking.result.reply, details: booking.result.details };
+      return { reply: booking.result.reply, details: booking.result.details, appointment: booking.result.appointment };
     });
     localWrites = operation.catch(() => {});
     pendingSaves.add(operation);
@@ -225,7 +313,12 @@
     const enteringSummary = tab === 'summary' && activeTab !== 'summary';
     activeTab = tab;
     $$('.screen').forEach(screen => screen.classList.toggle('active', screen.id === `${tab}-screen`));
-    $$('.bottom-nav button').forEach(button => button.classList.toggle('active', button.dataset.tab === tab));
+    $$('.bottom-nav button[data-tab]').forEach(button => {
+      const selected = button.dataset.tab === tab;
+      button.classList.toggle('active', selected);
+      if (selected) button.setAttribute('aria-current', 'page');
+      else button.removeAttribute('aria-current');
+    });
     $('#fab').classList.toggle('hidden', tab !== 'agenda');
     $('#today-header').classList.toggle('hidden', tab !== 'agenda');
     if (tab === 'clients') renderClients();
@@ -237,8 +330,8 @@
 
   function setView(view) {
     state.settings.view = view;
-    $$('.segmented button').forEach(button => button.classList.toggle('active', button.dataset.view === view));
-    saveState();
+    $$('.segmented button[data-view]').forEach(button => button.classList.toggle('active', button.dataset.view === view));
+    if (!environment.shared) saveState();
     renderCalendar();
   }
 
@@ -919,7 +1012,7 @@
       $('#client-finance-detail').classList.remove('hidden');
       renderClientFinanceDetail();
     }
-    try { await saveState(); }
+    try { if (!environment.shared) await saveState(); }
     catch { showToast('A preferência mudou, mas não foi possível salvá-la neste dispositivo.'); }
   }
 
@@ -1151,8 +1244,8 @@
   }
 
   function bindEvents() {
-    $$('.bottom-nav button').forEach(button => button.addEventListener('click', () => setTab(button.dataset.tab)));
-    $$('.segmented button').forEach(button => button.addEventListener('click', () => setView(button.dataset.view)));
+    $$('.bottom-nav button[data-tab]').forEach(button => button.addEventListener('click', () => setTab(button.dataset.tab)));
+    $$('.segmented button[data-view]').forEach(button => button.addEventListener('click', () => setView(button.dataset.view)));
     $('#prev-date').addEventListener('click', () => navigateDate(-1));
     $('#next-date').addEventListener('click', () => navigateDate(1));
     $('#today-header').addEventListener('click', () => { anchorDate = new Date(); renderCalendar(); });
@@ -1182,7 +1275,7 @@
     });
     $$('.type-toggle button').forEach(button => button.addEventListener('click', () => setAppointmentKind(button.dataset.kind)));
     $$('[data-color-picker] button').forEach(button => button.addEventListener('click', () => setSelectedColor(button.closest('[data-color-picker]').dataset.colorPicker, button.dataset.color)));
-    $('#appointment-form').addEventListener('submit', submitAppointment);
+    $('#appointment-form').addEventListener('submit', handleEdit(submitAppointment));
     $('#financial-status').addEventListener('change', async event => {
       const select = event.target;
       const previous = select.dataset.previous || appointmentOriginalFinancialStatus;
@@ -1214,12 +1307,12 @@
     $('#appointment-client').addEventListener('change', applyClientDefaultsToAppointment);
     $('#appointment-start').addEventListener('input', updateEndFromStart);
     $('#appointment-start').addEventListener('change', updateEndFromStart);
-    $('#delete-appointment').addEventListener('click', deleteAppointment);
+    $('#delete-appointment').addEventListener('click', handleEdit(deleteAppointment));
     $('#new-client').addEventListener('click', () => openClientDialog());
-    $('#client-form').addEventListener('submit', submitClient);
+    $('#client-form').addEventListener('submit', handleEdit(submitClient));
     $('#client-list').addEventListener('click', event => { const card = event.target.closest('[data-client-id]'); if (card) openClientDialog(card.dataset.clientId); });
     $('#client-search').addEventListener('input', renderClients);
-    $('#delete-client').addEventListener('click', deleteClient);
+    $('#delete-client').addEventListener('click', handleEdit(deleteClient));
     $('#summary-month').addEventListener('change', () => { summaryVisibleCount = 10; summaryReturnPosition = null; renderSummary(); });
     $('#finance-cards').addEventListener('click', event => {
       const button = event.target.closest('[data-summary-mode]');
@@ -1245,7 +1338,7 @@
     $$('[data-toggle-values]').forEach(button => button.addEventListener('click', toggleSummaryValues));
     $('#summary-back').addEventListener('click', returnToSummaryClient);
     $('#clear-payment-selection').addEventListener('click', () => { paymentSelection.clear(); renderClientFinanceDetail(); });
-    $$('[data-financial-action]').forEach(button => button.addEventListener('click', () => applyFinancialStatus(button.dataset.financialAction)));
+    $$('[data-financial-action]').forEach(button => button.addEventListener('click', handleEdit(() => applyFinancialStatus(button.dataset.financialAction))));
     $('#client-finance-detail').addEventListener('change', event => {
       const checkbox = event.target.closest('[data-payment-id]');
       if (!checkbox) return;
@@ -1276,6 +1369,12 @@
     setTab('agenda');
     window.setInterval(refreshSummaryStatus, 60000);
     document.addEventListener('visibilitychange', refreshSummaryStatus);
+    if (environment.shared) {
+      window.setInterval(() => refreshSharedAgenda(), 10000);
+      document.addEventListener('visibilitychange', () => refreshSharedAgenda());
+      window.addEventListener('online', () => refreshSharedAgenda());
+      window.addEventListener('offline', () => sharedStatus('Sem internet. Alterações estão desativadas.'));
+    }
     setupUpdates();
   }
 
@@ -1349,7 +1448,10 @@
   }
 
   init().then(async () => {
-    window.AgentChat?.install(() => state, bookFromChat);
+    window.AgentChat?.install(() => state, bookFromChat, {
+      refresh: () => environment.shared && refreshSharedAgenda(true),
+      openAppointment: openAppointmentFromSummary,
+    });
     while (pendingSaves.size) await Promise.all([...pendingSaves]);
     if (window.AnaCloud) window.AnaCloud.install({
       getState: () => structuredClone(state),

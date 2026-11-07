@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { createAgentChat } from './agent-chat-server.mjs';
 import { hostedAccess } from './hosted-access.mjs';
 import { createFixture } from './hosted-fixture.mjs';
+import { createSharedAgenda, createSnapshotStore, sharedAgendaHandler } from './shared-agenda.mjs';
 
 // Somente os arquivos públicos da PWA: não expõe Git, SQL, backups ou configurações.
 const files = new Map([
@@ -43,6 +44,17 @@ const url = URL.parse(hostedOrigin || `http://${host}:${port}`);
 const password = process.env.AGENDA_DEV_PASSWORD;
 const apiKey = process.env.OPENAI_API_KEY?.trim();
 const model = process.env.OPENAI_MODEL?.trim();
+const sharedEnabled = process.env.AGENDA_SHARED === 'true';
+const supabase = {
+  url: process.env.AGENDA_SUPABASE_URL?.trim().replace(/\/$/, ''),
+  key: process.env.AGENDA_SUPABASE_PUBLISHABLE_KEY?.trim(),
+  email: process.env.AGENDA_SUPABASE_EMAIL?.trim(),
+  password: process.env.AGENDA_SUPABASE_PASSWORD,
+};
+if (sharedEnabled && (!hostedOrigin || !/^https:\/\/[a-z0-9]+\.supabase\.co$/.test(supabase.url || '') ||
+    !supabase.key?.startsWith('sb_publishable_') || !supabase.email || !supabase.password)) {
+  throw new Error('Agenda compartilhada exige hospedagem HTTPS e configuração do usuário dedicado do Supabase DEV.');
+}
 if (hostedOrigin) {
   const problems = [];
   if (url?.protocol !== 'https:' || url.origin !== hostedOrigin) problems.push('AGENDA_DEV_ORIGIN ou RENDER_EXTERNAL_URL deve ser um endereço HTTPS sem caminho');
@@ -52,13 +64,18 @@ if (hostedOrigin) {
   if (problems.length) throw new Error('Configuração da Agenda DEV: ' + problems.join(' | '));
 }
 const access = hostedOrigin ? hostedAccess({ origin: url.origin, password }) : null;
-const browserConfig = hostedOrigin ? `globalThis.AgendaHostedConfig = ${JSON.stringify({ origin: url.origin, fixture: createFixture() })};\n` : '';
+const agenda = sharedEnabled ? createSharedAgenda(createSnapshotStore(supabase)) : null;
+const agendaApi = agenda ? sharedAgendaHandler(agenda, url.origin) : null;
+const browserConfig = hostedOrigin ? `globalThis.AgendaHostedConfig = ${JSON.stringify({
+  origin: url.origin, shared: sharedEnabled, ...(sharedEnabled ? {} : { fixture: createFixture() }),
+})};\n` : '';
 const agentChat = createAgentChat({
   origin: url.origin,
   apiKey,
   model,
+  agenda,
 });
-const server = http.createServer(async (req, res) => {
+export const server = http.createServer(async (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'no-referrer');
@@ -67,14 +84,16 @@ const server = http.createServer(async (req, res) => {
   if (req.headers.host !== url.host) {
     res.writeHead(403).end(); return;
   }
-  let pathname;
-  try { pathname = new URL(req.url, url).pathname; }
+  let requestUrl;
+  try { requestUrl = new URL(req.url, url); }
   catch { res.writeHead(400).end(); return; }
+  const { pathname } = requestUrl;
   if (access) {
     try { if (!await access(req, res, pathname)) return; }
     catch { if (!res.headersSent) res.writeHead(400); res.end(); return; }
   }
   if (pathname === basePath + 'api/chat') return agentChat(req, res);
+  if (agendaApi && pathname === basePath + 'api/agenda') return agendaApi(req, res, requestUrl);
   if (!['GET', 'HEAD'].includes(req.method)) {
     res.writeHead(405, { Allow: 'GET, HEAD' }).end(); return;
   }
