@@ -3,9 +3,37 @@ import { directRemoval, validRemovalFilters } from './ana-bulk-removal.mjs';
 
 const tools = {
   ana: { name: 'consultar_horarios', field: 'data', format: 'AAAA-MM-DD', description: 'Consulta horários livres para um dia.' },
-  fin: { name: 'consultar_recebimentos', field: 'mes', format: 'AAAA-MM', description: 'Consulta o total recebido em um mês.' },
+  fin: { name: 'consultar_recebimentos', field: 'mes', format: 'AAAA-MM', description: 'Consulta valores de atendimentos, pagamentos e pendências por mês e dia da semana.' },
 };
 const month = /^\d{4}-(0[1-9]|1[0-2])$/;
+const finModes = ['total', 'open', 'received', 'both'];
+const weekdays = ['domingos', 'segundas-feiras', 'terças-feiras', 'quartas-feiras', 'quintas-feiras', 'sextas-feiras', 'sábados'];
+const finFields = {
+  dia_da_semana: { type: ['integer', 'null'], enum: [null, 0, 1, 2, 3, 4, 5, 6], description: 'Domingo é 0, segunda é 1. Null para todos os dias.' },
+  criterio: { type: 'string', enum: finModes },
+};
+
+function finReply(period, filters, result) {
+  const { mode, weekday } = filters;
+  const monthName = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric', timeZone: 'UTC' })
+    .format(new Date(period + '-01T00:00:00Z'));
+  const scope = weekday === null ? `em ${monthName}` : `nas ${weekdays[weekday]} de ${monthName}`;
+  const money = cents => (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  const labels = { total: 'Total dos atendimentos', open: 'A receber pela data do atendimento', received: 'Recebido pela data do pagamento' };
+  const fields = mode === 'both' ? ['received', 'open'] : [mode];
+  for (const field of fields) {
+    for (const suffix of ['Cents', 'Count']) {
+      const value = result?.[field + suffix];
+      if (!Number.isSafeInteger(value) || value < 0) throw new ChatError(400, 'Resultado da consulta inválido.');
+    }
+  }
+  if (fields.every(field => result[field + 'Count'] === 0)) {
+    return { reply: `${fields.map(field => labels[field]).join(' e ')} ${scope}: sem registros.` };
+  }
+  const values = fields.map(field => `${labels[field]}: ${money(result[field + 'Cents'])}`).join(' e ');
+  return { reply: `${scope[0].toUpperCase() + scope.slice(1)}, ${values[0].toLowerCase() + values.slice(1)}.` };
+}
+
 const time = /^([01]\d|2[0-3]):00$/;
 const bookingTool = {
   type: 'function', name: 'agendar_atendimento', strict: true,
@@ -184,7 +212,12 @@ export function createAgentChat({ origin, apiKey, model, fetchResponse = fetch, 
       'Chame a ferramenta para perguntas que exigem dados da Agenda. Nunca invente horários ou valores.',
       agent === 'ana' ?
         'Use agendar_atendimento somente para pedidos explícitos de agendamento com nome, data e hora. Use o contexto do mesmo pedido. Pergunte só o que falta. Nunca diga que gravou: o aplicativo mostrará o resultado.' :
-        'Você só consulta recebimentos. Recuse pedidos de criação, edição ou exclusão. Peça esclarecimento se faltar o mês.',
+        [
+          'Você faz consultas financeiras de atendimentos e recusa pedidos de escrita. Responda direto usando a ferramenta para consultas, inclusive frases informais, fragmentos e erros de digitação ou transcrição como “segunda-ferias”.',
+          '“Vou receber”, “vai dar” e “valor total dos atendimentos” usam total, incluindo pagos. “Quanto entra”, “falta receber”, “a receber” e “pendente” usam open. “Já recebi”, “recebi”, “recebimentos” e “caiu” usam received pela data do pagamento. “Quanto deu novembro?” e consultas genéricas sem indicação de critério usam both.',
+          'Filtre o dia da semana indicado. Em uma continuação, mantenha os filtros da última consulta financeira bem-sucedida que não foram substituídos, inclusive mês, ano, dia e critério. Use as respostas do Fin no histórico para identificar esses filtros. “Mês todo” limpa o dia da semana.',
+          'Sem contexto nem mês explícito, use o mês atual. Mês sem ano usa o ano atual ou o ano indicado pelo contexto. “Novembro passado” usa o novembro anterior ao mês atual. Nunca solicite o formato AAAA-MM. Quando houver dois períodos incompatíveis ou um recorte que a ferramenta não representa, faça uma única pergunta curta para resolver. Não consulte um mês inteiro quando houver um recorte explícito.',
+        ].join(' '),
       agent === 'ana' && (agenda ?
         'Para séries informe a frequência e a quantidade ou a data final somente se indicada. Use alterar_atendimento para editar, remarcar, cancelar ou apagar. Identifique o cliente e a sessão original. Quando houver dúvida sobre o alcance de uma série, pergunte. Só prepare a exclusão se o usuário pedir explicitamente para apagar; cancelar preserva o histórico. A confirmação de apagar ocorre exclusivamente no botão do aplicativo.' :
         'Esta Agenda aceita apenas agendamentos avulsos. Não agende só a primeira sessão de uma série nem altere sessões existentes.'),
@@ -195,8 +228,9 @@ export function createAgentChat({ origin, apiKey, model, fetchResponse = fetch, 
       tools: [{
         type: 'function', name: tool.name, description: tool.description, strict: true,
         parameters: {
-          type: 'object', properties: { [tool.field]: { type: 'string', description: tool.format } },
-          required: [tool.field], additionalProperties: false,
+          type: 'object',
+          properties: { [tool.field]: { type: 'string', description: tool.format }, ...(agent === 'fin' && finFields) },
+          required: [tool.field, ...(agent === 'fin' ? Object.keys(finFields) : [])], additionalProperties: false,
         },
       }, ...(agent === 'ana' ? (agenda ? [recurringBookingTool, changeTool, bulkTool] : [bookingTool]) : [])],
       parallel_tool_calls: false,
@@ -249,9 +283,18 @@ export function createAgentChat({ origin, apiKey, model, fetchResponse = fetch, 
     if (typeof period !== 'string' || !(agent === 'ana' ? validDate(period) : month.test(period))) {
       throw new ChatError(502, 'Período da consulta inválido.');
     }
-    const task = { agent, period, input, output, instructions, callId: call.call_id };
+    let filters;
+    if (agent === 'fin') {
+      const { criterio: mode, dia_da_semana: weekday } = args;
+      if (!finModes.includes(mode) || (weekday !== null && ![0, 1, 2, 3, 4, 5, 6].includes(weekday))) {
+        throw new ChatError(502, 'Não consegui identificar o critério da consulta.');
+      }
+      filters = { mode, weekday };
+    }
+    const task = { agent, period, filters, input, output, instructions, callId: call.call_id };
     if (agenda) {
-      const result = await agenda.consult(agent, period);
+      const result = await agenda.consult(agent, period, filters);
+      if (filters) return finReply(period, filters, result);
       return { ...await explain(task, result), consultation: { period, result } };
     }
     if (pending.size >= 32) throw new ChatError(429, 'Há consultas demais em andamento. Tente novamente em instantes.');
@@ -259,16 +302,22 @@ export function createAgentChat({ origin, apiKey, model, fetchResponse = fetch, 
     const timer = setTimeout(() => pending.delete(id), 60000);
     timer.unref();
     pending.set(id, { ...task, timer });
-    return { id, period };
+    return { id, period, ...(filters && { filters }) };
   }
 
   async function finish({ id, result }) {
     const task = pending.get(id);
     if (!task) throw new ChatError(409, 'A consulta expirou. Envie a pergunta novamente.');
-    return explain(task, result, () => {
+    const consume = () => {
       pending.delete(id);
       clearTimeout(task.timer);
-    });
+    };
+    if (task.filters) {
+      const reply = finReply(task.period, task.filters, result);
+      consume();
+      return reply;
+    }
+    return explain(task, result, consume);
   }
 
   async function explain({ agent, period, input, output, instructions, callId }, result, consume) {
@@ -276,8 +325,7 @@ export function createAgentChat({ origin, apiKey, model, fetchResponse = fetch, 
     if (agent === 'ana' && Array.isArray(result?.starts) && result.starts.length <= 24 &&
         result.starts.every(value => typeof value === 'string' && time.test(value))) {
       facts = { data: period, horarios: [...new Set(result.starts)].sort() };
-    } else if (agent === 'fin' && Number.isSafeInteger(result?.receivedCents) && result.receivedCents >= 0) {
-      facts = { mes: period, recebidoEmCentavos: result.receivedCents };
+
     } else {
       throw new ChatError(400, 'Resultado da consulta inválido.');
     }

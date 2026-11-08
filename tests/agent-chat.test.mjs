@@ -3,6 +3,8 @@ import http from 'node:http';
 import { once } from 'node:events';
 import { test } from 'node:test';
 import { createAgentChat } from '../agent-chat-server.mjs';
+import '../fin-core.js';
+import '../agent-chat.js';
 
 const origin = 'http://127.0.0.1:43188';
 const message = text => ({ type: 'message', content: [{ type: 'output_text', text }] });
@@ -36,10 +38,9 @@ async function harness(t, replies, configured = true, agenda) {
   return { post, requests };
 }
 
-test('Ana e Fin só recebem os fatos da ferramenta autorizada e o token só vale uma vez', async t => {
+test('Ana só recebe os fatos da ferramenta autorizada e o token só vale uma vez', async t => {
   const cases = [
     ['ana', 'consultar_horarios', { data: '2026-11-08' }, { starts: [] }, { data: '2026-11-08', horarios: [] }],
-    ['fin', 'consultar_recebimentos', { mes: '2026-11' }, { receivedCents: 0 }, { mes: '2026-11', recebidoEmCentavos: 0 }],
   ];
   for (const [agent, name, args, result, facts] of cases) {
     const toolCall = { type: 'function_call', name, arguments: JSON.stringify(args), call_id: 'call_1' };
@@ -146,4 +147,57 @@ test('Chat rejeita outra origem, informa falhas da API e aceita uma recusa sem f
   assert.deepEqual(await post(input), { status: 200, body: { reply: 'Só faço consultas.' } });
   const unconfigured = await harness(t, [], false);
   assert.match((await unconfigured.post(input)).body.error, /OPENAI_API_KEY/);
+});
+
+test('Fin consulta segundas e terças com o critério escolhido e responde usando apenas os totais da Agenda', async t => {
+  const now = new Date('2026-11-25T15:00:00Z');
+  const session = (id, date, value, financialStatus, extra = {}) => ({
+    id, kind: 'appointment', date, value, end: '15:00', financialStatus, ...extra,
+  });
+  const state = { clients: [], appointments: [
+    session('paga', '2026-11-02', 100, 'Pago', { payment: { date: '2026-11-03' } }),
+    session('em-aberto', '2026-11-09', 80, 'A receber'),
+    session('futura', '2026-11-30', 40, 'Não pago'),
+    session('cancelada', '2026-11-16', 50, 'Não pago', { cancelled: true }),
+    session('cancelada-paga', '2026-11-23', 70, 'Pago', { cancelled: true, payment: { date: '2026-11-23' } }),
+    session('sem-data', '2026-11-23', 20, 'Pago'),
+  ] };
+  const cases = [
+    ['Quanto vou receber nas segunda-ferias de novembro?', 'total', 1, /segundas-feiras de novembro de 2026.*240,00/],
+    ['E nas terças?', 'total', 2, /terças-feiras de novembro de 2026.*sem registros/],
+    ['Quanto entra nas segundas?', 'open', 1, /data do atendimento.*120,00/],
+    ['Quanto já recebi nas terças?', 'received', 2, /data do pagamento.*100,00/],
+    ['Quanto deu novembro?', 'both', null, /170,00.*120,00/],
+  ];
+  const outputs = cases.map(([, criterio, dia_da_semana]) => [{
+    type: 'function_call', name: 'consultar_recebimentos', call_id: 'fin',
+    arguments: JSON.stringify({ mes: '2026-11', criterio, dia_da_semana }),
+  }]);
+  const { post, requests } = await harness(t, outputs, true, {
+    consult: (agent, period, filters) => AgentChat.consult(agent, period, state, now, filters),
+  });
+  const history = [];
+  for (const [query, , , expected] of cases) {
+    const response = await post({ agent: 'fin', message: query, history });
+    assert.equal(response.status, 200);
+    assert.match(response.body.reply, expected);
+    history.push({ role: 'user', content: query }, { role: 'assistant', content: response.body.reply });
+  }
+  assert.equal(requests.length, cases.length);
+  assert.deepEqual(requests[1].input.slice(0, 2), history.slice(0, 2));
+  assert.deepEqual(requests[0].tools[0].parameters.required, ['mes', 'dia_da_semana', 'criterio']);
+  assert.match(requests[0].instructions, /segunda-ferias/);
+});
+
+test('Fin local preserva o filtro e consome o token após responder', async t => {
+  const { post } = await harness(t, [[{
+    type: 'function_call', name: 'consultar_recebimentos', call_id: 'fin',
+    arguments: JSON.stringify({ mes: '2026-11', criterio: 'open', dia_da_semana: 1 }),
+  }]]);
+  const start = await post({ agent: 'fin', message: 'Quanto entra nas segundas?', history: [] });
+  assert.equal(start.status, 200);
+  assert.deepEqual(start.body.filters, { mode: 'open', weekday: 1 });
+  const finish = { id: start.body.id, result: { openCents: 0, openCount: 0 } };
+  assert.match((await post(finish)).body.reply, /segundas-feiras.*sem registros/);
+  assert.equal((await post(finish)).status, 409);
 });

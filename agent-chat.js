@@ -7,10 +7,28 @@
     return { appointments, blocks: [], reservations: [] };
   }
 
-  function consult(agent, period, state, now = new Date()) {
+  function consult(agent, period, state, now = new Date(), filters) {
     if (agent === 'fin') {
-      const report = FinCore.report(FinCore.project(state, now), [], period, now);
-      return { receivedCents: report.receivedCents };
+      const snapshot = FinCore.project(state, now);
+      if (!filters) return { receivedCents: FinCore.report(snapshot, [], period, now).receivedCents };
+      const matches = date => date?.startsWith(period) &&
+        (filters.weekday === null || new Date(date + 'T00:00:00Z').getUTCDay() === filters.weekday);
+      const result = { totalCents: 0, openCents: 0, receivedCents: 0, totalCount: 0, openCount: 0, receivedCount: 0 };
+      for (const record of snapshot.records) {
+        if (!record.cancelled && matches(record.sessionDate)) {
+          result.totalCents += record.amountCents;
+          result.totalCount++;
+          if (record.status !== 'Pago') {
+            result.openCents += record.amountCents;
+            result.openCount++;
+          }
+        }
+        if (record.status === 'Pago' && matches(record.paymentDate)) {
+          result.receivedCents += record.amountCents;
+          result.receivedCount++;
+        }
+      }
+      return result;
     }
     const agenda = dayAgenda(state, period);
     const starts = [];
@@ -326,9 +344,9 @@
           details = response.details;
         } else if (response.id) {
           let result;
-          try { result = consult(agent, response.period, getAgenda()); }
+          try { result = consult(agent, response.period, getAgenda(), new Date(), response.filters); }
           catch { throw new Error('Não foi possível ler os dados da Agenda para esta consulta.'); }
-          details = describe(agent, response.period, result);
+          if (!response.filters) details = describe(agent, response.period, result);
           response = await send({ id: response.id, result });
         }
         thread.messages.push({ role: 'user', content: message });

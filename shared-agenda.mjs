@@ -111,8 +111,8 @@ export function createSharedAgenda(store, { now = () => new Date() } = {}) {
 
   return {
     read, write,
-    async consult(agent, period) {
-      return AgentChat.consult(agent, period, (await read()).state, now());
+    async consult(agent, period, filters) {
+      return AgentChat.consult(agent, period, (await read()).state, now(), filters);
     },
     book: request => modify(state => prepareSeries(state, request, now())),
     change: request => modify(state => prepareChange(state, request, now())),
