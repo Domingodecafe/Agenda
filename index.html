@@ -8,7 +8,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css?v=ana-dev-8">
-  <link rel="stylesheet" href="agent-chat.css?v=ana-dev-13">
+  <link rel="stylesheet" href="agent-chat.css?v=ana-dev-14">
   <title>Ana DEV — Agenda de testes</title>
 </head>
 <body>
@@ -91,6 +91,17 @@
       <p class="agent-chat-note">Use dados fictícios. As mensagens e os resultados das consultas são enviados à OpenAI.</p>
       <div class="agent-chat-examples"><p id="agent-chat-intro"></p><button id="agent-chat-example" class="secondary-button" type="button"></button></div>
       <div id="agent-chat-log" class="agent-chat-log" role="log" aria-label="Conversa"></div>
+      <section id="agent-voice-controls" aria-label="Modo de voz" hidden>
+        <div class="agent-voice-buttons">
+          <button id="agent-voice-start" class="secondary-button" type="button" aria-describedby="agent-voice-note">Iniciar voz</button>
+          <button id="agent-voice-mute" class="secondary-button" type="button" aria-pressed="false" disabled>Silenciar microfone</button>
+          <button id="agent-voice-interrupt" class="secondary-button" type="button" disabled>Interromper resposta</button>
+          <button id="agent-voice-play" class="secondary-button" type="button" hidden>Ativar áudio</button>
+        </div>
+        <small id="agent-voice-note">Durante a sessão de voz, o áudio do microfone é enviado à OpenAI.</small>
+        <div id="agent-voice-status" role="status"></div>
+        <audio id="agent-voice-audio" autoplay playsinline></audio>
+      </section>
       <form id="agent-chat-form">
         <label class="field" for="agent-chat-message"><span>Pergunta</span><input id="agent-chat-message" maxlength="1000" autocomplete="off" required></label>
         <button id="agent-chat-send" class="primary-button" type="submit">Enviar</button>
@@ -182,7 +193,8 @@
   <script src="cloud-sync.js?v=ana-dev-8" defer></script>
   <script src="ana-policy.js?v=ana-dev-13" defer></script>
   <script src="fin-core.js?v=ana-dev-8" defer></script>
-  <script src="agent-chat.js?v=ana-dev-13" defer></script>
+  <script src="agent-voice.js?v=ana-dev-14" defer></script>
+  <script src="agent-chat.js?v=ana-dev-14" defer></script>
   <script src="app.js?v=ana-dev-13" defer></script>
 </body>
 </html>

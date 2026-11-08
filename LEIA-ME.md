@@ -108,6 +108,28 @@ Rode `node --test tests/*.test.mjs` na raiz para verificar a cópia. Use um perf
 de navegador de teste e dados fictícios. Se precisar transferir registros locais,
 use o backup do aplicativo. O Git leva os arquivos versionados do projeto.
 
+### Piloto de voz da Ana e do Fin
+
+No serviço DEV hospedado com `AGENDA_SHARED=true`, configure `AGENDA_VOICE=true` e
+`OPENAI_REALTIME_MODEL=gpt-realtime` (ou outro modelo da Realtime API disponível
+no projeto da chave). O botão **Iniciar voz** aparece no chat após reiniciar o serviço.
+Para desativá-lo, remova `AGENDA_VOICE` ou defina `false`.
+
+Use dados fictícios. O áudio é enviado à OpenAI. A Agenda mantém as mensagens
+da sessão em memória e envia aos logs operacionais apenas duração, consumo
+informado pela API e estado de falha. Use esses registros e a cobrança do projeto
+para medir o custo no piloto.
+
+Valide no Edge para Windows, no Chrome para Android e no Safari para iPhone.
+Faça uma consulta e um agendamento com Ana, consulte recebimentos com Fin,
+interrompa uma resposta falando e pelo botão, silencie o microfone e feche o chat.
+Confirme que pedir uma exclusão e dizer “sim” apenas mantém a revisão na tela.
+Negue o acesso ao microfone para validar o retorno ao chat escrito.
+
+O estabelecimento da chamada e a validação de SDP foram adaptados do
+[exemplo oficial realtime-server-controlled](https://github.com/openai/openai-agents-js/tree/50f6b68275f0b319fb439705b67c8937e0285604/examples/realtime-server-controlled),
+com o aviso MIT em `LICENSE-AGENT-VOICE.txt`.
+
 ## Como usar
 
 - Para uma consulta rápida no computador, abra `index.html`.

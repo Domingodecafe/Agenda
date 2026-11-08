@@ -1,6 +1,7 @@
 import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { createAgentChat } from './agent-chat-server.mjs';
+import { createVoiceHandler } from './agent-voice-server.mjs';
 import { hostedAccess } from './hosted-access.mjs';
 import { createFixture } from './hosted-fixture.mjs';
 import { createSharedAgenda, createSnapshotStore, sharedAgendaHandler } from './shared-agenda.mjs';
@@ -11,6 +12,7 @@ const files = new Map([
   ['/app.js', 'text/javascript; charset=utf-8'],
   ['/agent-chat.js', 'text/javascript; charset=utf-8'],
   ['/agent-chat.css', 'text/css; charset=utf-8'],
+  ['/agent-voice.js', 'text/javascript; charset=utf-8'],
   ['/cloud-sync.js', 'text/javascript; charset=utf-8'],
   ['/sw-ana-dev.js', 'text/javascript; charset=utf-8'],
   ['/ana-environment.js', 'text/javascript; charset=utf-8'],
@@ -45,6 +47,8 @@ const password = process.env.AGENDA_DEV_PASSWORD;
 const apiKey = process.env.OPENAI_API_KEY?.trim();
 const model = process.env.OPENAI_MODEL?.trim();
 const sharedEnabled = process.env.AGENDA_SHARED === 'true';
+const voiceModel = process.env.OPENAI_REALTIME_MODEL?.trim();
+const voiceEnabled = Boolean(hostedOrigin && sharedEnabled && voiceModel && process.env.AGENDA_VOICE === 'true');
 const supabase = {
   url: process.env.AGENDA_SUPABASE_URL?.trim().replace(/\/$/, ''),
   key: process.env.AGENDA_SUPABASE_PUBLISHABLE_KEY?.trim(),
@@ -72,7 +76,7 @@ const access = hostedOrigin ? hostedAccess({ origin: url.origin, password }) : n
 const agenda = sharedEnabled ? createSharedAgenda(createSnapshotStore(supabase)) : null;
 const agendaApi = agenda ? sharedAgendaHandler(agenda, url.origin) : null;
 const browserConfig = hostedOrigin ? `globalThis.AgendaHostedConfig = ${JSON.stringify({
-  origin: url.origin, shared: sharedEnabled, ...(sharedEnabled ? {} : { fixture: createFixture() }),
+  origin: url.origin, shared: sharedEnabled, voice: voiceEnabled, ...(sharedEnabled ? {} : { fixture: createFixture() }),
 })};\n` : '';
 const agentChat = createAgentChat({
   origin: url.origin,
@@ -80,11 +84,15 @@ const agentChat = createAgentChat({
   model,
   agenda,
 });
+const voice = voiceEnabled ? createVoiceHandler({
+  origin: url.origin, apiKey, model: voiceModel, processTurn: agentChat.processTurn,
+  metric: data => console.info(JSON.stringify(data)),
+}) : null;
 export const server = http.createServer(async (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'no-referrer');
-  res.setHeader('Content-Security-Policy', "default-src 'self'; connect-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'");
+  res.setHeader('Content-Security-Policy', "default-src 'self'; connect-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'");
   if (access && req.url === '/healthz' && req.method === 'GET') {
     const revision = process.env.RENDER_GIT_COMMIT;
     if (/^[a-f0-9]{40}$/.test(revision || '')) res.setHeader('X-Agenda-Commit', revision);
@@ -103,6 +111,10 @@ export const server = http.createServer(async (req, res) => {
     catch { if (!res.headersSent) res.writeHead(400); res.end(); return; }
   }
   if (pathname === basePath + 'api/chat') return agentChat(req, res);
+  const voicePath = basePath + 'api/voice';
+  if (voice && (pathname === voicePath || pathname.startsWith(voicePath + '/'))) {
+    return voice(req, res, pathname.slice(voicePath.length + 1));
+  }
   if (agendaApi && pathname === basePath + 'api/agenda') return agendaApi(req, res, requestUrl);
   if (!['GET', 'HEAD'].includes(req.method)) {
     res.writeHead(405, { Allow: 'GET, HEAD' }).end(); return;

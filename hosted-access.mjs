@@ -63,7 +63,11 @@ export function hostedAccess({ origin, password }) {
       }).end();
       return false;
     }
-    if (authenticated) return true;
+    if (authenticated) {
+      req.agendaSession = signature;
+      req.agendaSessionExpires = Number(expiry) * 1000;
+      return true;
+    }
     if (isApi) res.writeHead(401, { 'Content-Type': 'application/json; charset=utf-8' })
       .end(JSON.stringify({ error: 'Sua sessão terminou. Recarregue a Agenda e entre novamente.' }));
     else if (path === '/' || path === '/ana-dev/' || path.endsWith('.html')) res.writeHead(303, { Location: '/ana-dev/login' }).end();

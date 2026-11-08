@@ -8,7 +8,7 @@ const CACHE = environment.cacheName;
 const FILES = [
   './index.html', './styles.css?v=ana-dev-8', './ana-environment.js?v=ana-dev-13',
   './ana-sync-engine.js?v=ana-dev-8', './cloud-sync.js?v=ana-dev-8', './app.js?v=ana-dev-13',
-  './agent-chat.js?v=ana-dev-13', './agent-chat.css?v=ana-dev-13',
+  './agent-chat.js?v=ana-dev-14', './agent-chat.css?v=ana-dev-14', './agent-voice.js?v=ana-dev-14',
   './manifest.webmanifest', './icon.svg',
   './ana-console.html', './ana-console.css', './ana-console.js?v=ana-dev-8',
   './ana-policy.js?v=ana-dev-13', './ana-local-store.js?v=ana-dev-8',

@@ -61,6 +61,9 @@
 #agent-chat-send, #agent-chat-open { min-height: 44px; }
 #agent-chat-status { max-height: 4.5em; margin: 6px 0 0; overflow-wrap: anywhere; }
 #agent-chat-status:empty { display: none; }
+#agent-voice-controls { flex-shrink: 0; padding-block: 8px; color: var(--muted); font-size: .85rem; }
+.agent-voice-buttons { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px; }
+.agent-voice-buttons button { min-height: 44px; }
 @media (max-width: 640px) {
   .agenda-sync-status { padding-inline: 16px; }
   .agent-chat-content:has(#agent-chat-message:focus) :is(.agent-chat-examples, .agent-chat-note, .eyebrow) { display: none; }

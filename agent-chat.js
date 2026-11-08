@@ -103,6 +103,69 @@
       agent, { messages: [], draft: '', busy: false, status: '', expired: false },
     ]));
     let selected = 'ana';
+    const voiceStart = byId('agent-voice-start');
+    const voice = globalThis.AgendaHostedConfig?.voice && voiceStart ? globalThis.AgentVoice?.install({
+      controls: byId('agent-voice-controls'), startButton: voiceStart, muteButton: byId('agent-voice-mute'),
+      interruptButton: byId('agent-voice-interrupt'), playbackButton: byId('agent-voice-play'),
+      status: byId('agent-voice-status'), audio: byId('agent-voice-audio'), onEvent: handleVoiceEvent, onState: render,
+    }) : undefined;
+
+    function context(thread) {
+      return {
+        history: thread.messages.slice(-12).map(({ role, content }) => ({ role, content: content.slice(0, 1500) })),
+        pendingRemoval: thread.messages.findLast(item => item.confirmation)?.confirmation,
+      };
+    }
+
+    function responseDetails(agent, response) {
+      const consultation = response.consultation;
+      return consultation ? describe(agent, consultation.period, consultation.result) : response.details;
+    }
+
+    function addReply(agent, response, details) {
+      const thread = conversations[agent];
+      if (!response.showConfirmation || response.discardConfirmation) {
+        for (const item of thread.messages) item.confirmation = null;
+      }
+      thread.messages.push({ role: 'assistant', content: response.reply, details, appointment: response.appointment,
+        confirmation: response.confirmation, review: response.review });
+      if (response.showConfirmation && selected === agent) {
+        requestAnimationFrame(() => log.querySelector('[data-pending-removal] button')?.scrollIntoView({ block: 'nearest' }));
+      }
+    }
+
+    function handleVoiceEvent(agent, event) {
+      const thread = conversations[agent];
+      if (event.type === 'turn') {
+        thread.voicePending = thread.busy = true;
+        thread.status = 'Consultando o agente…';
+        thread.messages.push({ role: 'user', content: event.message });
+      } else if (event.type === 'result') {
+        thread.voicePending = thread.busy = false;
+        thread.status = event.error || '';
+        if (event.result) {
+          addReply(agent, event.result, responseDetails(agent, event.result));
+          if (event.result.changed || event.result.appointment) {
+            Promise.resolve().then(() => refresh?.()).catch(() => {
+              thread.status = 'Reabra a Agenda para atualizar os atendimentos.';
+              if (selected === agent) render();
+            });
+          }
+        }
+      } else if (event.type === 'notice') {
+        thread.status = event.message;
+      } else if (event.type === 'closed' && thread.voicePending) {
+        thread.voicePending = thread.busy = false;
+        thread.status = 'A conexão de voz caiu. Confira a Agenda antes de repetir o comando.';
+      }
+      if (selected === agent) render();
+    }
+
+    voiceStart?.addEventListener('click', () => {
+      if (voice?.active) void voice.stop('Voz encerrada.');
+      else if (voice && !conversations[selected].busy) void voice.start(selected, context(conversations[selected]));
+    });
+    dialog.addEventListener('close', () => { if (!dialog.open) void voice?.stop(); });
 
     function render() {
       const thread = conversations[selected];
@@ -161,6 +224,7 @@
           confirm.disabled = thread.busy;
           confirm.addEventListener('click', async () => {
             if (thread.busy || !message.confirmation) return;
+            void voice?.stop();
             thread.busy = true;
             thread.status = 'Confirmando exclusão…';
             render();
@@ -184,7 +248,8 @@
       }));
       log.scrollTop = log.scrollHeight;
       input.value = thread.draft;
-      input.readOnly = submit.disabled = thread.busy;
+      input.readOnly = submit.disabled = thread.busy || Boolean(voice?.active);
+      if (voiceStart && voice) voiceStart.disabled = thread.busy && !voice.active;
       examples.hidden = thread.messages.length > 0 || thread.busy;
       input.placeholder = selected === 'ana' ? 'Quais horários estão livres amanhã?' : 'Quanto recebi este mês?';
       status.textContent = thread.status;
@@ -233,7 +298,11 @@
     });
     input.addEventListener('input', () => { conversations[selected].draft = input.value; });
     for (const button of selectors) button.addEventListener('click', () => {
+      if (selected === button.dataset.agent) return;
+      const restartVoice = voice?.active;
+      if (restartVoice) void voice.stop();
       selected = button.dataset.agent;
+      if (restartVoice && !conversations[selected].busy) void voice.start(selected, context(conversations[selected]));
       render();
     });
 
@@ -242,20 +311,15 @@
       const agent = selected;
       const thread = conversations[agent];
       const message = input.value.trim();
-      if (!message || thread.busy) return;
-      const history = thread.messages.slice(-12).map(({ role, content }) => ({ role, content: content.slice(0, 1500) }));
+      if (!message || thread.busy || voice?.active) return;
       thread.draft = message;
       thread.busy = true;
       thread.status = 'Consultando o agente…';
       thread.expired = false;
       render();
       try {
-        const pendingRemoval = thread.messages.findLast(item => item.confirmation)?.confirmation;
-        let response = await send({ agent, message, history, pendingRemoval });
-        let details = response.details;
-        if (response.consultation) {
-          details = describe(agent, response.consultation.period, response.consultation.result);
-        }
+        let response = await send({ agent, message, ...context(thread) });
+        let details = responseDetails(agent, response);
         if (agent === 'ana' && response.booking) {
           try { response = await book(response.booking); }
           catch (error) { throw new Error(error.message || 'Não foi possível salvar o atendimento.'); }
@@ -267,19 +331,11 @@
           details = describe(agent, response.period, result);
           response = await send({ id: response.id, result });
         }
-        if (!response.showConfirmation || response.discardConfirmation) {
-          for (const item of thread.messages) item.confirmation = null;
-        }
-        thread.messages.push({ role: 'user', content: message }, {
-          role: 'assistant', content: response.reply, details, appointment: response.appointment,
-          confirmation: response.confirmation, review: response.review,
-        });
+        thread.messages.push({ role: 'user', content: message });
+        addReply(agent, response, details);
         thread.draft = '';
         thread.status = '';
         if (response.changed || response.appointment) await refresh?.();
-        if (response.showConfirmation && selected === agent) {
-          requestAnimationFrame(() => log.querySelector('[data-pending-removal] button')?.scrollIntoView({ block: 'nearest' }));
-        }
       } catch (error) {
         thread.status = error.message;
         thread.expired = error.status === 401;

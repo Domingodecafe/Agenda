@@ -111,7 +111,7 @@ async function openAIError(response) {
   return new ChatError(502, `A OpenAI recusou a consulta (${response.status}). Confira o modelo configurado e tente novamente.`);
 }
 
-async function readBody(req) {
+export async function readBody(req) {
   const chunks = [];
   let size = 0;
   for await (const chunk of req.iterator({ destroyOnReturn: false })) {
@@ -173,7 +173,7 @@ export function createAgentChat({ origin, apiKey, model, fetchResponse = fetch, 
       if (filters) return agenda.bulkRemoval(filters);
       const short = message.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().trim().replace(/[.!]+$/, '');
       const recurringOnly = /^(?:sim[ ,]+)?(?:apague |exclua )?(?:a |as )?series? inteiras?$/.test(short);
-      if (tokenPattern.test(body.pendingRemoval || '') && (recurringOnly || /^(?:sim|confirmo|isso|pode apagar|pode prosseguir)$/.test(short))) {
+      if (tokenPattern.test(body.pendingRemoval || '') && (recurringOnly || /^(?:sim(?:[ ,]+confirmo)?|confirmo|isso|pode apagar|pode prosseguir)$/.test(short))) {
         return agenda.continueRemoval(body.pendingRemoval, recurringOnly);
       }
     }
@@ -289,7 +289,18 @@ export function createAgentChat({ origin, apiKey, model, fetchResponse = fetch, 
     return { reply: cleanAnswer(final) };
   }
 
-  return async (req, res) => {
+  async function run(operation) {
+    if (!apiKey || !model) throw new ChatError(503, 'Configure OPENAI_API_KEY e OPENAI_MODEL no servidor e reinicie a prévia.');
+    if (active >= 4) throw new ChatError(429, 'Há consultas demais em andamento. Tente novamente em instantes.');
+    active++;
+    try {
+      return await operation();
+    } finally {
+      active--;
+    }
+  }
+
+  const handle = async (req, res) => {
     const send = (status, data) => res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' }).end(JSON.stringify(data));
     if (req.method !== 'POST') {
       res.setHeader('Allow', 'POST');
@@ -300,21 +311,22 @@ export function createAgentChat({ origin, apiKey, model, fetchResponse = fetch, 
     }
     if (!apiKey || !model) return send(503, { error: 'Configure OPENAI_API_KEY e OPENAI_MODEL no servidor e reinicie a prévia.' });
     if (active >= 4) return send(429, { error: 'Há consultas demais em andamento. Tente novamente em instantes.' });
-    active++;
     try {
       const body = await readBody(req);
       if (!body || typeof body !== 'object' || Array.isArray(body)) throw new ChatError(400, 'Mensagem inválida.');
-      if (agenda && Object.hasOwn(body, 'confirmation')) {
-        if (!tokenPattern.test(body.confirmation || '')) throw new ChatError(400, 'Confirmação inválida.');
-        return send(200, await agenda.confirmRemoval(body.confirmation));
-      }
-      if (agenda && Object.hasOwn(body, 'id')) throw new ChatError(400, 'O servidor consulta a agenda compartilhada diretamente.');
-      send(200, await (Object.hasOwn(body, 'id') ? finish(body) : start(body)));
+      const result = await run(() => {
+        if (agenda && Object.hasOwn(body, 'confirmation')) {
+          if (!tokenPattern.test(body.confirmation || '')) throw new ChatError(400, 'Confirmação inválida.');
+          return agenda.confirmRemoval(body.confirmation);
+        }
+        if (agenda && Object.hasOwn(body, 'id')) throw new ChatError(400, 'O servidor consulta a agenda compartilhada diretamente.');
+        return Object.hasOwn(body, 'id') ? finish(body) : start(body);
+      });
+      send(200, result);
     } catch (error) {
       if (error instanceof ChatError) send(error.status, { error: error.message });
       else send(502, { error: 'Não foi possível concluir a ação. Confira a Agenda antes de tentar novamente.' });
-    } finally {
-      active--;
     }
   };
+  return Object.assign(handle, { processTurn: body => run(() => start(body)) });
 }
