@@ -13,6 +13,45 @@ const finFields = {
   criterio: { type: 'string', enum: finModes },
 };
 
+export function validFinContext(value) {
+  return typeof value?.period === 'string' && month.test(value.period) && finModes.includes(value.mode) &&
+    (value.weekday === null || Number.isInteger(value.weekday) && value.weekday >= 0 && value.weekday <= 6);
+}
+
+const normalizeSpeech = value => value.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().trim();
+
+function finFollowup(message, context) {
+  if (!validFinContext(context)) return;
+  const phrase = normalizeSpeech(message).replace(/[.!?]+$/, '').replace(/\s+/g, ' ');
+  const day = phrase.match(/^(?:(?:e|quer dizer)[, ]+)?(?:so )?(?:na|nas|no|nos) (domingo|segunda|terca|quarta|quinta|sexta|sabado)s?(?:[ -]feiras?)?$/);
+  const dayCorrection = /^(?:so )?(?:na|nas|no|nos) \S+(?: feira)?[,. …]+quer dizer[, ]+/.test(phrase)
+    ? phrase.split('quer dizer').at(-1).replace(/^[, ]+/, '').match(/^(?:na|nas|no|nos) (domingo|segunda|terca|quarta|quinta|sexta|sabado)s?(?:[ -]feiras?)?$/)
+    : null;
+  if (day || dayCorrection) {
+    const weekday = ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'].indexOf((day || dayCorrection)[1]);
+    return { ...context, weekday };
+  }
+  if (/^(?:agora )?(?:o )?mes (?:todo|inteiro)$/.test(phrase)) return { ...context, weekday: null };
+  if (/^(?:so |apenas )?(?:o que )?falta receber$/.test(phrase)) return { ...context, mode: 'open' };
+  const months = 'janeiro fevereiro marco abril maio junho julho agosto setembro outubro novembro dezembro'.split(' ');
+  const date = phrase.match(/^(?:e )?em ([a-z]+)(?: de (\d{4}))?$/);
+  const index = date ? months.indexOf(date[1]) : -1;
+  if (index >= 0) {
+    const year = date[2] || context.period.slice(0, 4);
+    return { ...context, period: year + '-' + String(index + 1).padStart(2, '0') };
+  }
+}
+
+function ambiguousVoiceHour(message) {
+  const hours = ['uma', 'duas', 'tres', 'quatro', 'cinco', 'seis', 'sete', 'oito', 'nove', 'dez', 'onze'];
+  const lastClause = normalizeSpeech(message).split(/\b(?:quer dizer|digo|na verdade)\b/).at(-1);
+  const match = lastClause.match(/\bas +([1-9]|10|11|uma|duas|tres|quatro|cinco|seis|sete|oito|nove|dez|onze)(?:h| horas?)?(?![:\d\w])([^,.!?]*)/);
+  if (!match || /\b(?:manha|tarde|noite|madrugada|am|pm)\b/.test(lastClause) ||
+      /^\s*(?:e meia|e quarto|e \d)/.test(match[2])) return;
+  const hour = Number(match[1]) || hours.indexOf(match[1]) + 1;
+  return `Você quis dizer ${hour}h ou ${hour + 12}h?`;
+}
+
 function finReply(period, filters, result) {
   const { mode, weekday } = filters;
   const monthName = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric', timeZone: 'UTC' })
@@ -27,11 +66,12 @@ function finReply(period, filters, result) {
       if (!Number.isSafeInteger(value) || value < 0) throw new ChatError(400, 'Resultado da consulta inválido.');
     }
   }
+  const finContext = { period, ...filters };
   if (fields.every(field => result[field + 'Count'] === 0)) {
-    return { reply: `${fields.map(field => labels[field]).join(' e ')} ${scope}: sem registros.` };
+    return { finContext, reply: `${fields.map(field => labels[field]).join(' e ')} ${scope}: sem registros.` };
   }
   const values = fields.map(field => `${labels[field]}: ${money(result[field + 'Cents'])}`).join(' e ');
-  return { reply: `${scope[0].toUpperCase() + scope.slice(1)}, ${values[0].toLowerCase() + values.slice(1)}.` };
+  return { finContext, reply: `${scope[0].toUpperCase() + scope.slice(1)}, ${values[0].toLowerCase() + values.slice(1)}.` };
 }
 
 const time = /^([01]\d|2[0-3]):00$/;
@@ -185,12 +225,28 @@ export function createAgentChat({ origin, apiKey, model, fetchResponse = fetch, 
     return data.output;
   }
 
+  function deferConsultation(task) {
+    if (pending.size >= 32) throw new ChatError(429, 'Há consultas demais em andamento. Tente novamente em instantes.');
+    const id = randomUUID();
+    const timer = setTimeout(() => pending.delete(id), 60000);
+    timer.unref();
+    pending.set(id, { ...task, timer });
+    return { id, period: task.period, ...(task.filters && { filters: task.filters }) };
+  }
+
+  async function consultFin({ period, ...filters }) {
+    if (!agenda) return deferConsultation({ period, filters });
+    return finReply(period, filters, await agenda.consult('fin', period, filters));
+  }
+
   async function start(body) {
-    const { agent, message, history } = body;
+    const { agent, message, history, finContext } = body;
     if (!Object.hasOwn(tools, agent) || !validText(message, 1000) || !Array.isArray(history) || history.length > 12 ||
         !history.every(item => ['user', 'assistant'].includes(item?.role) && validText(item.content, 1500))) {
       throw new ChatError(400, 'Conversa inválida.');
     }
+    const followup = agent === 'fin' && finFollowup(message, finContext);
+    if (followup) return consultFin(followup);
     const tool = tools[agent];
     const now = new Date();
     const dateFormat = new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/Sao_Paulo', dateStyle: 'short' });
@@ -218,6 +274,9 @@ export function createAgentChat({ origin, apiKey, model, fetchResponse = fetch, 
           'Filtre o dia da semana indicado. Em uma continuação, mantenha os filtros da última consulta financeira bem-sucedida que não foram substituídos, inclusive mês, ano, dia e critério. Use as respostas do Fin no histórico para identificar esses filtros. “Mês todo” limpa o dia da semana.',
           'Sem contexto nem mês explícito, use o mês atual. Mês sem ano usa o ano atual ou o ano indicado pelo contexto. “Novembro passado” usa o novembro anterior ao mês atual. Nunca solicite o formato AAAA-MM. Quando houver dois períodos incompatíveis ou um recorte que a ferramenta não representa, faça uma única pergunta curta para resolver. Não consulte um mês inteiro quando houver um recorte explícito.',
         ].join(' '),
+      agent === 'fin' && validFinContext(finContext) && `Última consulta bem-sucedida do Fin (contexto estruturado prioritário): ${JSON.stringify(finContext)}. Em continuação altere apenas os campos mencionados.`,
+      agent === 'fin' && 'Se o usuário corrigir a própria fala com “quer dizer”, “digo” ou “na verdade”, a última opção explícita prevalece apenas no campo corrigido. Exemplo: “só nas segundas, quer dizer, nas terças” troca apenas o dia. “Só o que falta receber” troca apenas o critério.',
+      agent === 'ana' && 'Se houver dúvida sobre nome, dia ou horário, faça uma pergunta curta e espere a resposta antes de gravar. “Às sete” sem indicação de manhã ou noite pode ser 07:00 ou 19:00: pergunte qual. Em uma correção no mesmo turno, use a última opção explícita. Se o pedido anterior já foi confirmado e o usuário disser “quer dizer” ou corrigir a data ou o horário, identifique o atendimento original pelo histórico e remarque pelo fluxo de alteração. Se faltar a identificação original, pergunte antes de gravar. Nunca crie outra sessão só para corrigir uma já gravada.',
       agent === 'ana' && (agenda ?
         'Para séries informe a frequência e a quantidade ou a data final somente se indicada. Use alterar_atendimento para editar, remarcar, cancelar ou apagar. Identifique o cliente e a sessão original. Quando houver dúvida sobre o alcance de uma série, pergunte. Só prepare a exclusão se o usuário pedir explicitamente para apagar; cancelar preserva o histórico. A confirmação de apagar ocorre exclusivamente no botão do aplicativo.' :
         'Esta Agenda aceita apenas agendamentos avulsos. Não agende só a primeira sessão de uma série nem altere sessões existentes.'),
@@ -252,7 +311,17 @@ export function createAgentChat({ origin, apiKey, model, fetchResponse = fetch, 
       const filters = Object.fromEntries(Object.keys(bulkFields).map(key => [key, args[key]]));
       return agenda.bulkRemoval(filters);
     }
+    if (agent === 'ana' && (call.name === bookingTool.name ||
+        (call.name === changeTool.name && args?.acao === 'edit' && args.novo_horario))) {
+      const clarification = body.voice && ambiguousVoiceHour(message);
+      if (clarification) return { reply: clarification };
+    }
     if (agent === 'ana' && call.name === bookingTool.name) {
+      const lastReply = history.findLast(item => item.role === 'assistant')?.content || '';
+      if (agenda && /^(?:Atendimento|Série) agendad[oa] para /i.test(lastReply) &&
+          /^(?:quer dizer|digo|na verdade)\b/.test(normalizeSpeech(message))) {
+        return { reply: 'Você quer remarcar o atendimento que acabei de agendar?' };
+      }
       const { nome, data, horario, modalidade, frequencia = 'none', quantidade, ate } = args || {};
       if (!validText(nome, 100) || typeof data !== 'string' || !validDate(data) ||
           !validStart(horario) || ![null, 'Presencial', 'Online'].includes(modalidade) ||
@@ -283,26 +352,19 @@ export function createAgentChat({ origin, apiKey, model, fetchResponse = fetch, 
     if (typeof period !== 'string' || !(agent === 'ana' ? validDate(period) : month.test(period))) {
       throw new ChatError(502, 'Período da consulta inválido.');
     }
-    let filters;
     if (agent === 'fin') {
       const { criterio: mode, dia_da_semana: weekday } = args;
       if (!finModes.includes(mode) || (weekday !== null && ![0, 1, 2, 3, 4, 5, 6].includes(weekday))) {
         throw new ChatError(502, 'Não consegui identificar o critério da consulta.');
       }
-      filters = { mode, weekday };
+      return consultFin({ period, mode, weekday });
     }
-    const task = { agent, period, filters, input, output, instructions, callId: call.call_id };
+    const task = { agent, period, input, output, instructions, callId: call.call_id };
     if (agenda) {
-      const result = await agenda.consult(agent, period, filters);
-      if (filters) return finReply(period, filters, result);
+      const result = await agenda.consult(agent, period);
       return { ...await explain(task, result), consultation: { period, result } };
     }
-    if (pending.size >= 32) throw new ChatError(429, 'Há consultas demais em andamento. Tente novamente em instantes.');
-    const id = randomUUID();
-    const timer = setTimeout(() => pending.delete(id), 60000);
-    timer.unref();
-    pending.set(id, { ...task, timer });
-    return { id, period, ...(filters && { filters }) };
+    return deferConsultation(task);
   }
 
   async function finish({ id, result }) {

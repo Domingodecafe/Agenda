@@ -14,7 +14,10 @@ class Sideband extends EventTarget {
   send(data) {
     const event = JSON.parse(data);
     if (event.type === 'session.update') this.receive({ type: 'session.updated', session: event.session });
-    else this.sent.push(event);
+    else {
+      this.sent.push(event);
+      if (event.type === 'input_audio_buffer.clear') this.receive({ type: 'input_audio_buffer.cleared' });
+    }
   }
   close() { this.readyState = 3; }
   receive(data) { this.dispatchEvent(new MessageEvent('message', { data: JSON.stringify(data) })); }
@@ -31,7 +34,7 @@ async function setup(t, processTurn) {
     origin, apiKey: 'test-key', model: 'test-model', processTurn,
     async fetchCall(_url, { body }) {
       const session = JSON.parse(body.get('session'));
-      assert.equal(session.audio.input.turn_detection.create_response, false);
+      assert.equal(session.audio.input.turn_detection?.create_response ?? null, session.audio.input.turn_detection === null ? null : false);
       assert.equal(session.audio.input.transcription.language, 'pt');
       return new Response(sdp, { headers: { Location: '/v1/realtime/calls/rtc_test' } });
     },
@@ -66,7 +69,7 @@ async function setup(t, processTurn) {
     assert.equal(response.status, 200);
     const lines = response.body.pipeThrough(new TextDecoderStream()).getReader();
     let buffer = '';
-    return async () => {
+    return async function next() {
       while (!buffer.includes('\n\n')) {
         const next = await lines.read();
         assert.equal(next.done, false);
@@ -75,7 +78,8 @@ async function setup(t, processTurn) {
       const end = buffer.indexOf('\n\n');
       const line = buffer.slice(0, end);
       buffer = buffer.slice(end + 2);
-      return JSON.parse(line.slice(6));
+      const event = JSON.parse(line.slice(6));
+      return event.type === 'speech-state' ? next() : event;
     };
   }
   return { start, events, request, sockets, hangups };
@@ -130,12 +134,20 @@ test('queda do áudio preserva o resultado em andamento e descarta comandos aind
   const [socket] = app.sockets;
   socket.transcript('first', 'Marque amanhã');
   socket.transcript('queued', 'Apague todos');
-  assert.equal((await next()).message, 'Marque amanhã');
+  const turn = await next();
+  assert.equal(turn.message, 'Marque amanhã');
   socket.dispatchEvent(new Event('close'));
   assert.match((await next()).message, /confira a Agenda/);
+  const lookup = () => app.request(id + '/turns').then(res => res.json());
+  assert.equal((await app.request(id + '/turns', { headers: { 'x-test-user': 'other' } })).status, 404);
+  assert.deepEqual((await lookup()).turns.map(({ id, state }) => ({ id, state })), [{ id: turn.id, state: 'pending' }]);
   resolve({ reply: 'Agendado', changed: true });
   assert.equal((await next()).result.changed, true);
   assert.equal((await next()).type, 'closed');
+  const recovered = await lookup();
+  assert.equal(recovered.closed, true);
+  assert.equal(recovered.turns[0].id, turn.id);
+  assert.equal(recovered.turns[0].result.reply, 'Agendado');
   assert.equal(count, 1);
   assert.equal(socket.sent.length, 0);
 });
@@ -165,5 +177,35 @@ test('confirmação falada chama a revisão e só o chat escrito recebe a opera�
   const { result } = await next();
   assert.equal(result?.showConfirmation, true);
   assert.equal(reviews, 1);
+  await app.request(id, { method: 'DELETE' });
+});
+
+test('segure para falar aceita somente a transcrição da captura confirmada', async t => {
+  const commands = [];
+  const app = await setup(t, async ({ message }) => {
+    commands.push(message);
+    return { reply: 'Consultado' };
+  });
+  const id = randomUUID();
+  assert.equal((await app.start(id, 'fin', { mode: 'hold' })).status, 200);
+  const next = await app.events(id);
+  await next();
+  const socket = app.sockets[0];
+  const capture = action => app.request(id + '/capture/' + action, { method: 'POST' });
+  socket.transcript('noise', 'TV ao fundo');
+  assert.equal((await capture('start')).status, 204);
+  assert.equal((await capture('cancel')).status, 204);
+  assert.equal((await capture('finish')).status, 409);
+  socket.transcript('discarded', 'Trecho cancelado');
+  assert.equal((await capture('start')).status, 204);
+  assert.equal((await capture('finish')).status, 204);
+  socket.receive({ type: 'input_audio_buffer.committed', item_id: 'accepted' });
+  socket.transcript('accepted', 'Só o que falta receber');
+  socket.transcript('accepted', 'Evento repetido');
+  assert.equal((await next()).type, 'capture-ready');
+  assert.equal((await next()).message, 'Só o que falta receber');
+  assert.equal((await next()).result.reply, 'Consultado');
+  assert.deepEqual(commands, ['Só o que falta receber']);
+  assert.equal(socket.sent.filter(event => event.type === 'input_audio_buffer.commit').length, 1);
   await app.request(id, { method: 'DELETE' });
 });

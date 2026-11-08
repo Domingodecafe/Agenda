@@ -118,19 +118,23 @@
     const desktop = matchMedia('(min-width: 1000px)');
     const selectors = [...dialog.querySelectorAll('[data-agent]')];
     const conversations = Object.fromEntries(['ana', 'fin'].map(agent => [
-      agent, { messages: [], draft: '', busy: false, status: '', expired: false },
+      agent, { messages: [], draft: '', busy: false, status: '', expired: false, turns: new Map(), recovering: new Set() },
     ]));
     let selected = 'ana';
     const voiceStart = byId('agent-voice-start');
+    const voiceMode = byId('agent-voice-mode');
+    const reconnect = byId('agent-voice-reconnect');
+    const continueText = byId('agent-voice-text');
     const voice = globalThis.AgendaHostedConfig?.voice && voiceStart ? globalThis.AgentVoice?.install({
       controls: byId('agent-voice-controls'), startButton: voiceStart, muteButton: byId('agent-voice-mute'),
       interruptButton: byId('agent-voice-interrupt'), playbackButton: byId('agent-voice-play'),
-      status: byId('agent-voice-status'), audio: byId('agent-voice-audio'), onEvent: handleVoiceEvent, onState: render,
+      status: byId('agent-voice-status'), audio: byId('agent-voice-audio'), holdButton: byId('agent-voice-hold'), onEvent: handleVoiceEvent, onState: render,
     }) : undefined;
 
     function context(thread) {
       return {
         history: thread.messages.slice(-12).map(({ role, content }) => ({ role, content: content.slice(0, 1500) })),
+        finContext: thread.finContext,
         pendingRemoval: thread.messages.findLast(item => item.confirmation)?.confirmation,
       };
     }
@@ -142,6 +146,7 @@
 
     function addReply(agent, response, details) {
       const thread = conversations[agent];
+      if (response.finContext) thread.finContext = response.finContext;
       if (!response.showConfirmation || response.discardConfirmation) {
         for (const item of thread.messages) item.confirmation = null;
       }
@@ -155,11 +160,14 @@
     function handleVoiceEvent(agent, event) {
       const thread = conversations[agent];
       if (event.type === 'turn') {
-        thread.voicePending = thread.busy = true;
+        if (thread.turns.has(event.id)) return;
+        thread.turns.set(event.id, { session: event.session, pending: true });
         thread.status = 'Consultando o agente…';
         thread.messages.push({ role: 'user', content: event.message });
       } else if (event.type === 'result') {
-        thread.voicePending = thread.busy = false;
+        const turn = thread.turns.get(event.id);
+        if (!turn?.pending) return;
+        turn.pending = false;
         thread.status = event.error || '';
         if (event.result) {
           addReply(agent, event.result, responseDetails(agent, event.result));
@@ -172,16 +180,56 @@
         }
       } else if (event.type === 'notice') {
         thread.status = event.message;
-      } else if (event.type === 'closed' && thread.voicePending) {
-        thread.voicePending = thread.busy = false;
-        thread.status = 'A conexão de voz caiu. Confira a Agenda antes de repetir o comando.';
+      } else if (event.type === 'disconnected') {
+        thread.recovering.add(event.session);
+        thread.disconnected = true;
+        thread.status = 'A conexão de voz caiu. Verificando o resultado dos comandos…';
+      } else if (['recovery-complete', 'recovery-unknown'].includes(event.type)) {
+        thread.recovering.delete(event.session);
+        const pending = [...thread.turns.values()].filter(turn => turn.pending && turn.session === event.session);
+        for (const turn of pending) turn.pending = false;
+        if (event.type === 'recovery-unknown' || pending.length) {
+          thread.status = 'Não foi possível confirmar o resultado. Confira a Agenda antes de repetir o pedido.';
+        } else if (thread.status.startsWith('A conexão de voz caiu')) {
+          thread.status = 'Você pode retomar por voz ou continuar por texto.';
+        }
       }
       if (selected === agent) render();
     }
 
+    function busy(thread) {
+      return thread.busy || thread.recovering.size > 0 || [...thread.turns.values()].some(turn => turn.pending);
+    }
+
+    function startVoice() {
+      const thread = conversations[selected];
+      if (!voice || voice.active || busy(thread)) return;
+      thread.disconnected = false;
+      void voice.start(selected, context(thread), voiceMode?.value);
+    }
+
+    reconnect?.addEventListener('click', startVoice);
+    continueText?.addEventListener('click', () => {
+      conversations[selected].disconnected = false;
+      render();
+      input.focus();
+    });
+    let chosenMode = 'continuous';
+    voiceMode?.addEventListener('change', () => {
+      if (voice?.capturing || busy(conversations[selected])) {
+        voiceMode.value = chosenMode;
+        return;
+      }
+      chosenMode = voiceMode.value;
+      if (voice?.active) {
+        void voice.stop();
+        startVoice();
+      }
+    });
+
     voiceStart?.addEventListener('click', () => {
       if (voice?.active) void voice.stop('Voz encerrada.');
-      else if (voice && !conversations[selected].busy) void voice.start(selected, context(conversations[selected]));
+      else startVoice();
     });
     dialog.addEventListener('close', () => { if (!dialog.open) void voice?.stop(); });
 
@@ -239,9 +287,9 @@
           confirm.type = 'button';
           confirm.className = 'danger-button';
           confirm.textContent = 'Confirmar exclusão';
-          confirm.disabled = thread.busy;
+          confirm.disabled = busy(thread);
           confirm.addEventListener('click', async () => {
-            if (thread.busy || !message.confirmation) return;
+            if (busy(thread) || !message.confirmation) return;
             void voice?.stop();
             thread.busy = true;
             thread.status = 'Confirmando exclusão…';
@@ -266,8 +314,12 @@
       }));
       log.scrollTop = log.scrollHeight;
       input.value = thread.draft;
-      input.readOnly = submit.disabled = thread.busy || Boolean(voice?.active);
-      if (voiceStart && voice) voiceStart.disabled = thread.busy && !voice.active;
+      input.readOnly = submit.disabled = busy(thread) || Boolean(voice?.active);
+      if (reconnect && continueText) {
+        reconnect.hidden = continueText.hidden = !thread.disconnected;
+        reconnect.disabled = continueText.disabled = busy(thread);
+      }
+      if (voiceStart && voice) voiceStart.disabled = busy(thread) && !voice.active;
       examples.hidden = thread.messages.length > 0 || thread.busy;
       input.placeholder = selected === 'ana' ? 'Quais horários estão livres amanhã?' : 'Quanto recebi este mês?';
       status.textContent = thread.status;
@@ -320,7 +372,7 @@
       const restartVoice = voice?.active;
       if (restartVoice) void voice.stop();
       selected = button.dataset.agent;
-      if (restartVoice && !conversations[selected].busy) void voice.start(selected, context(conversations[selected]));
+      if (restartVoice) startVoice();
       render();
     });
 
@@ -329,7 +381,7 @@
       const agent = selected;
       const thread = conversations[agent];
       const message = input.value.trim();
-      if (!message || thread.busy || voice?.active) return;
+      if (!message || busy(thread) || voice?.active) return;
       thread.draft = message;
       thread.busy = true;
       thread.status = 'Consultando o agente…';

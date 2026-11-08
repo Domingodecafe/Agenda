@@ -201,3 +201,46 @@ test('Fin local preserva o filtro e consome o token após responder', async t =>
   assert.match((await post(finish)).body.reply, /segundas-feiras.*sem registros/);
   assert.equal((await post(finish)).status, 409);
 });
+
+test('Fin muda apenas o campo corrigido ou mencionado em continuações curtas', async t => {
+  const calls = [];
+  const { post, requests } = await harness(t, [], true, {
+    consult(_agent, period, filters) {
+      calls.push({ period, ...filters });
+      return { totalCents: 0, totalCount: 0, openCents: 0, openCount: 0 };
+    },
+  });
+  let finContext = { period: '2026-11', weekday: 1, mode: 'total' };
+  for (const message of ['E em dezembro?', 'Só o que falta receber', 'Agora o mês todo',
+    'Só nas segundas… quer dizer, nas terças', 'Quer dizer, nas quintas']) {
+    const response = await post({ agent: 'fin', message, history: [], finContext });
+    assert.equal(response.status, 200);
+    finContext = response.body.finContext;
+  }
+  assert.deepEqual(calls, [
+    { period: '2026-12', weekday: 1, mode: 'total' },
+    { period: '2026-12', weekday: 1, mode: 'open' },
+    { period: '2026-12', weekday: null, mode: 'open' },
+    { period: '2026-12', weekday: 2, mode: 'open' },
+    { period: '2026-12', weekday: 4, mode: 'open' },
+  ]);
+  assert.equal(requests.length, 0);
+});
+
+test('Ana pede esclarecimento de horário antes de gravar um comando de voz', async () => {
+  let bookings = 0;
+  const chat = createAgentChat({
+    origin, apiKey: 'test-key', model: 'test-model',
+    agenda: { book: async () => { bookings++; return { reply: 'Agendado' }; } },
+    fetchResponse: async () => Response.json({ status: 'completed', output: [{
+      type: 'function_call', name: 'agendar_atendimento', call_id: 'book',
+      arguments: JSON.stringify({ nome: 'Lia', data: '2026-11-09', horario: '19:00', modalidade: 'Online' }),
+    }] }),
+  });
+  const body = { agent: 'ana', voice: true, history: [] };
+  const clarification = await chat.processTurn({ ...body, message: 'Marque a Lia às sete amanhã' });
+  assert.match(clarification.reply, /7h ou 19h/);
+  assert.equal(bookings, 0);
+  await chat.processTurn({ ...body, message: 'Às sete da noite' });
+  assert.equal(bookings, 1);
+});

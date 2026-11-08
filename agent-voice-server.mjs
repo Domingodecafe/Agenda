@@ -1,5 +1,5 @@
-import { readBody } from './agent-chat-server.mjs';
-import { createHash } from 'node:crypto';
+import { readBody, validFinContext } from './agent-chat-server.mjs';
+import { createHash, randomUUID } from 'node:crypto';
 
 const sessionId = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/;
 const connectionLost = 'A voz foi desconectada. Se pediu uma alteração, confira a Agenda antes de tentar novamente.';
@@ -29,6 +29,24 @@ export function createVoiceHandler({
 }) {
   const sessions = new Map();
   const owners = new Map();
+  const recovery = new Map();
+
+  function releaseCapture(session) {
+    const capture = session.capture;
+    session.capture = undefined;
+    clearTimeout(capture?.timer);
+    capture?.ready?.(false);
+  }
+
+  function armCapture(session) {
+    if (session.capture || !session.stream || session.closed) return false;
+    return new Promise(resolve => {
+      const capture = session.capture = { phase: 'clearing', ready: resolve };
+      capture.timer = setTimeout(() => releaseCapture(session), 3000).unref();
+      interrupt(session);
+      send(session, { type: 'input_audio_buffer.clear' });
+    });
+  }
 
   function emit(session, data) {
     if (!session.stream || session.stream.destroyed) return;
@@ -36,7 +54,7 @@ export function createVoiceHandler({
   }
 
   function finishStream(session) {
-    emit(session, { type: 'closed', message: session.closeMessage });
+    emit(session, { type: 'closed', message: session.closeMessage, recoverable: session.closeMessage === connectionLost });
     session.stream?.end();
   }
 
@@ -48,10 +66,12 @@ export function createVoiceHandler({
     session.socket?.close();
     if (session.callId) void Promise.resolve().then(() => hangup(session.callId)).catch(() => {});
     clearInterval(session.timer);
+    releaseCapture(session);
+    setTimeout(() => recovery.delete(session.id), sessionLimit).unref();
     sessions.delete(session.id);
     owners.delete(session.owner);
     metric({ type: 'voice_session', durationMs: Date.now() - session.created, failed: message === connectionLost });
-    if (session.running) emit(session, { type: 'closing', message });
+    if (session.running) emit(session, { type: 'closing', message, recoverable: message === connectionLost });
     else finishStream(session);
   }
 
@@ -85,12 +105,16 @@ export function createVoiceHandler({
     try {
       while (!session.closed && session.queue.length) {
         const { message, generation } = session.queue.shift();
-        emit(session, { type: 'turn', message });
+        const id = randomUUID();
+        const turn = { id, message, state: 'pending' };
+        session.turns.push(turn);
+        emit(session, { type: 'turn', id, message });
         const started = Date.now();
         let result;
         let error;
         try {
-          result = await processTurn({ agent: session.agent, message, history: session.history, pendingRemoval: session.pendingRemoval });
+          result = await processTurn({ agent: session.agent, message, history: session.history, pendingRemoval: session.pendingRemoval, finContext: session.finContext, voice: true });
+          if (result.finContext) session.finContext = result.finContext;
           if (!result.showConfirmation || result.discardConfirmation) session.pendingRemoval = undefined;
           if (result.confirmation) session.pendingRemoval = result.confirmation;
           session.history = [...session.history, { role: 'user', content: message },
@@ -99,7 +123,8 @@ export function createVoiceHandler({
           error = 'Não foi possível concluir o comando. Confira a Agenda antes de tentar novamente.';
         }
         metric({ type: 'voice_turn', durationMs: Date.now() - started, failed: Boolean(error) });
-        emit(session, { type: 'result', result, error });
+        Object.assign(turn, { state: 'completed', result, error, expires: Date.now() + sessionLimit });
+        emit(session, { type: 'result', id, result, error });
         if (!session.closed && generation === session.generation) {
           session.speech = error || [result.reply, result.details].filter(value => typeof value === 'string').join(' ');
           speak(session);
@@ -114,13 +139,34 @@ export function createVoiceHandler({
   function receive(session, event) {
     if (session.closed) return;
     switch (event.type) {
+      case 'input_audio_buffer.cleared':
+        if (session.capture?.phase === 'clearing') {
+          const capture = session.capture;
+          clearTimeout(capture.timer);
+          capture.phase = 'recording';
+          capture.timer = setTimeout(() => releaseCapture(session), 65_000).unref();
+          capture.ready(true);
+        }
+        break;
+      case 'input_audio_buffer.committed':
+        if (session.capture?.phase === 'committing') session.capture.itemId = event.item_id;
+        break;
       case 'input_audio_buffer.speech_started':
+        if (session.manual) break;
         session.lastActivity = Date.now();
         interrupt(session);
-        if (typeof event.item_id === 'string') session.speechGenerations.set(event.item_id, session.generation);
+        if (typeof event.item_id === 'string') {
+          session.speechGenerations.set(event.item_id, session.generation);
+          emit(session, { type: 'speech-state', capturing: true });
+        }
         break;
       case 'conversation.item.input_audio_transcription.completed': {
         if (!session.stream || typeof event.item_id !== 'string' || session.seen.has(event.item_id)) break;
+        if (session.manual) {
+          if (session.capture?.itemId !== event.item_id) break;
+          releaseCapture(session);
+          emit(session, { type: 'capture-ready' });
+        }
         session.seen.add(event.item_id);
         if (event.usage?.type === 'duration') metric({ type: 'voice_transcription', seconds: event.usage.seconds });
         else if (event.usage?.type === 'tokens') metric({ type: 'voice_transcription',
@@ -128,9 +174,10 @@ export function createVoiceHandler({
           inputAudioTokens: event.usage.input_token_details?.audio_tokens });
         const generation = session.speechGenerations.get(event.item_id) ?? session.generation;
         session.speechGenerations.delete(event.item_id);
+        if (!session.manual && !session.speechGenerations.size) emit(session, { type: 'speech-state', capturing: false });
         const message = typeof event.transcript === 'string' ? event.transcript.trim() : '';
         if (!message) break;
-        if (message.length > 1000 || session.queue.length >= 4) {
+        if (message.length > 1000 || session.queue.length >= 4 || session.turns.length + session.queue.length >= 200) {
           emit(session, { type: 'notice', message: 'Comando longo ou fila cheia. Aguarde e fale novamente em uma frase curta.' });
           break;
         }
@@ -140,7 +187,13 @@ export function createVoiceHandler({
         break;
       }
       case 'conversation.item.input_audio_transcription.failed':
+        if (session.manual) {
+          if (session.capture?.itemId !== event.item_id) break;
+          releaseCapture(session);
+          emit(session, { type: 'capture-ready' });
+        }
         session.speechGenerations.delete(event.item_id);
+        if (!session.manual && !session.speechGenerations.size) emit(session, { type: 'speech-state', capturing: false });
         emit(session, { type: 'notice', message: 'Não consegui transcrever. Tente falar novamente.' });
         break;
       case 'output_audio_buffer.started':
@@ -160,6 +213,11 @@ export function createVoiceHandler({
         break;
       }
       case 'error':
+        if (session.capture?.phase === 'committing' && event.error?.code === 'input_audio_buffer_commit_empty') {
+          releaseCapture(session);
+          emit(session, { type: 'capture-ready' });
+          break;
+        }
         if (event.error?.code !== 'response_cancel_not_active') close(session, connectionLost);
         break;
     }
@@ -173,7 +231,7 @@ export function createVoiceHandler({
       audio: { input: {
         transcription: { model: 'gpt-4o-mini-transcribe', language: 'pt' },
         noise_reduction: { type: 'near_field' },
-        turn_detection: { type: 'server_vad', create_response: false, interrupt_response: false },
+        turn_detection: session.manual ? null : { type: 'server_vad', create_response: false, interrupt_response: false },
       }, output: { voice: 'marin' } },
     };
     body.set('session', JSON.stringify({ ...config, model }));
@@ -203,8 +261,9 @@ export function createVoiceHandler({
       socket.addEventListener('message', ({ data }) => {
         try {
           const event = JSON.parse(data);
-          if (event.type === 'session.updated' && event.session?.audio?.input?.turn_detection?.create_response === false &&
-              event.session.audio.input.transcription?.language === 'pt') {
+          const input = event.session?.audio?.input;
+          if (event.type === 'session.updated' && input?.transcription?.language === 'pt' &&
+              (session.manual ? input.turn_detection === null : input.turn_detection?.create_response === false)) {
             signal.removeEventListener('abort', abort);
             resolve();
           }
@@ -221,6 +280,13 @@ export function createVoiceHandler({
     const owner = req.agendaSession;
     if (!owner || (req.method !== 'GET' && req.headers.origin !== origin)) return json(403, { error: 'Abra a voz pela Agenda DEV.' });
     const id = action.split('/')[0];
+    if (req.method === 'GET' && action === id + '/turns') {
+      const entry = recovery.get(id);
+      if (!entry || entry.owner !== owner) return json(404, { error: 'Resultado indisponível.' });
+      const now = Date.now();
+      const turns = entry.turns.filter(turn => !turn.expires || turn.expires > now);
+      return json(200, { turns, closed: entry.closed });
+    }
     if (req.method === 'POST' && action === '') {
       let body;
       try {
@@ -228,17 +294,20 @@ export function createVoiceHandler({
         body = await readBody(req);
       } catch (error) { return json(error.status || 400, { error: 'Solicitação de voz inválida.' }); }
       if (!sessionId.test(body?.id || '') || !['ana', 'fin'].includes(body.agent) || !audioOnly(body.sdp) ||
+          (body.mode !== undefined && !['continuous', 'hold'].includes(body.mode)) ||
           !Array.isArray(body.history) || body.history.length > 12 || !body.history.every(item =>
             ['user', 'assistant'].includes(item?.role) && typeof item.content === 'string' && item.content.length <= 1500)) {
         return json(400, { error: 'Solicitação de voz inválida.' });
       }
-      if (sessions.has(body.id) || owners.has(owner)) return json(409, { error: 'Já existe uma sessão de voz aberta.' });
+      if (recovery.has(body.id) || owners.has(owner)) return json(409, { error: 'Já existe uma sessão de voz aberta.' });
       if (sessions.size >= 4) return json(429, { error: 'Há muitas sessões de voz abertas. Tente novamente em instantes.' });
       if (res.destroyed) return;
       const now = Date.now();
       const session = { owner, id: body.id, agent: body.agent, history: body.history, pendingRemoval: body.pendingRemoval,
         created: now, lastActivity: now, abort: new AbortController(), generation: 0, seen: new Set(),
-        speechGenerations: new Map(), queue: [] };
+        speechGenerations: new Map(), queue: [], turns: [], closed: false, manual: body.mode === 'hold',
+        finContext: validFinContext(body.finContext) ? body.finContext : undefined };
+      recovery.set(session.id, session);
       sessions.set(session.id, session);
       owners.set(owner, session);
       session.timer = setInterval(() => {
@@ -270,6 +339,31 @@ export function createVoiceHandler({
       res.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8', 'X-Accel-Buffering': 'no' });
       res.once('close', () => close(session));
       return emit(session, { type: 'ready' });
+    }
+    if (req.method === 'POST' && session.manual && session.ready) {
+      if (action === id + '/capture/start') {
+        return res.writeHead(await armCapture(session) ? 204 : 409).end();
+      }
+      if (action === id + '/capture/cancel') {
+        if (session.capture?.phase !== 'committing') {
+          releaseCapture(session);
+        }
+        return res.writeHead(204).end();
+      }
+      if (action === id + '/capture/finish') {
+        if (session.capture?.phase !== 'recording') return res.writeHead(409).end();
+        const capture = session.capture;
+        clearTimeout(capture.timer);
+        capture.phase = 'committing';
+        capture.timer = setTimeout(() => {
+          releaseCapture(session);
+          emit(session, { type: 'capture-ready' });
+          emit(session, { type: 'notice', message: 'Não consegui transcrever. Tente falar novamente.' });
+        }, 10_000).unref();
+        session.lastActivity = Date.now();
+        send(session, { type: 'input_audio_buffer.commit' });
+        return res.writeHead(204).end();
+      }
     }
     if (req.method === 'POST' && action === id + '/interrupt') {
       interrupt(session);

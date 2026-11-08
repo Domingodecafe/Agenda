@@ -63,6 +63,7 @@
 #agent-chat-status:empty { display: none; }
 #agent-voice-controls { flex-shrink: 0; padding-block: 8px; color: var(--muted); font-size: .85rem; }
 .agent-voice-buttons { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px; }
+#agent-voice-hold { touch-action: none; user-select: none; }
 .agent-voice-buttons button { min-height: 44px; }
 @media (max-width: 640px) {
   .agenda-sync-status { padding-inline: 16px; }

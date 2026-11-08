@@ -11,7 +11,7 @@ function client({ getUserMedia } = {}) {
   const tracks = [];
   const events = [];
   const sandbox = {
-    AbortController, AbortSignal, crypto: globalThis.crypto,
+    AbortController, AbortSignal, setTimeout, clearTimeout, crypto: globalThis.crypto,
     navigator: { mediaDevices: { getUserMedia: getUserMedia || (async () => {
       const track = { enabled: true, stop() { this.stopped = true; } };
       tracks.push(track);
@@ -20,7 +20,7 @@ function client({ getUserMedia } = {}) {
     addEventListener() {},
     async fetch(url, options) {
       requests.push([url, options]);
-      return { ok: true, json: async () => ({ sdp: 'answer' }) };
+      return { ok: true, json: async () => ({ sdp: 'answer', turns: [], closed: true }) };
     },
     RTCPeerConnection: class {
       addTrack() {}
@@ -38,15 +38,17 @@ function client({ getUserMedia } = {}) {
   vm.runInNewContext(source, sandbox);
   const button = () => ({
     setAttribute() {},
-    addEventListener(_event, callback) { this.click = callback; },
+    addEventListener(event, callback) { this[event] = callback; },
+    setPointerCapture() {},
   });
   const muteButton = button();
+  const holdButton = button();
   const status = {};
   const voice = sandbox.AgentVoice.install({
     controls: {}, startButton: button(), muteButton, interruptButton: button(), playbackButton: button(),
-    status, audio: {}, onEvent: (...args) => events.push(args), onState() {},
+    status, audio: {}, holdButton, onEvent: (...args) => events.push(args), onState() {},
   });
-  return { voice, sessions, requests, tracks, events, muteButton, status };
+  return { voice, sessions, requests, tracks, events, muteButton, holdButton, status };
 }
 
 test('troca de agente solta o microfone anterior e entrega o resultado ao agente correto', async () => {
@@ -79,4 +81,29 @@ test('permissão negada libera o chat e não abre uma sessão', async () => {
   assert.equal(voice.active, false);
   assert.equal(requests.length, 0);
   assert.match(status.textContent, /chat escrito/);
+});
+
+test('modo manual abre a transmissão pelo teclado e corta o áudio ao cancelar o toque', async () => {
+  const { voice, sessions, requests, tracks, holdButton } = client();
+  await voice.start('fin', { history: [] }, 'hold');
+  sessions[0].receive({ type: 'ready' });
+  assert.equal(tracks[0].enabled, false);
+  const key = { key: ' ', preventDefault() {} };
+  holdButton.keydown(key);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(tracks[0].enabled, true);
+  await new Promise(resolve => setTimeout(resolve, 160));
+  holdButton.keyup(key);
+  assert.equal(tracks[0].enabled, false);
+  await new Promise(resolve => setTimeout(resolve, 220));
+  assert.equal(requests.at(-1)[0].endsWith('/finish'), true);
+  sessions[0].receive({ type: 'capture-ready' });
+  holdButton.pointerdown({ isPrimary: true, button: 0, pointerId: 1 });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(tracks[0].enabled, true);
+  holdButton.pointercancel();
+  assert.equal(tracks[0].enabled, false);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(requests.at(-1)[0].endsWith('/cancel'), true);
+  await voice.stop();
 });
