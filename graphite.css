@@ -1,0 +1,232 @@
+/* Shared palette. Appointment categories and financial statuses keep their colors. */
+:root {
+  color-scheme: dark;
+  --bg: #101010;
+  --surface: #181818;
+  --surface2: #222222;
+  --surface3: #2d2d2d;
+  --line: #353535;
+  --line2: #626262;
+  --text: #f4f4f4;
+  --muted: #bdbdbd;
+  --dim: #a6a6a6;
+  --accent: #e8e8e8;
+  --accent-strong: #fff;
+  --category-green: #b8f5d0;
+  --on-accent: #151515;
+  --radius: 14px;
+  --shadow: 0 8px 24px #0004;
+  --sidebar-width: 200px;
+}
+
+body.agenda-page, body.console-page {
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 14px;
+}
+
+.ui-icon, .nav-icon .ui-icon {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  vertical-align: middle;
+}
+
+.icon-button .ui-icon, .search-wrap .ui-icon, #new-client .ui-icon,
+.agent-voice-buttons .ui-icon { width: 16px; height: 16px; }
+.agenda-page :is(button, a, input, select, textarea):focus-visible,
+.console-page :is(button, a, input, select, textarea):focus-visible {
+  outline: 2px solid var(--accent-strong);
+  outline-offset: 2px;
+}
+
+.agenda-page .brand h1,
+.agenda-page :is(.section-heading, .detail-heading) h2,
+.console-page h1 {
+  font-size: clamp(24px, 3vw, 32px);
+  line-height: 1.15;
+  letter-spacing: -.035em;
+}
+
+.agenda-page .topbar { gap: 12px; }
+.agenda-page .brand { flex-wrap: wrap; gap: 8px; }
+.agenda-page .header-actions { flex-wrap: wrap; justify-content: end; }
+.agenda-page .header-actions a.text-button {
+  display: inline-flex;
+  align-items: center;
+  font-size: 13px;
+}
+
+.agenda-page :is(.toolbar, .date-nav .icon-button, .finance-action, .client-card, .modal) {
+  background: var(--surface);
+  border-color: var(--line);
+  box-shadow: none;
+}
+
+.agenda-page :is(.date-nav .icon-button, .text-button, .toolbar-today) {
+  color: var(--text);
+  border-color: var(--line2);
+}
+
+.agenda-page :is(.primary-button, .fab, .brand-mark, .segmented button.active, .type-toggle button.active, .today .day-head b) {
+  background: var(--accent);
+  color: var(--on-accent);
+  box-shadow: none;
+}
+
+.agenda-page :is(.segmented button.active, .type-toggle button.active) { transform: none; }
+.agenda-page :is(.calendar, .summary-client-row, .client-card) { min-width: 0; }
+.agenda-page .calendar { max-width: 100%; overflow-x: auto; }
+.agenda-page .toolbar { flex-wrap: wrap; }
+.agenda-page .period-label { min-width: 0; }
+.agenda-page .event-card:is(.event-green, .color-0) { background: var(--category-green); }
+.agenda-page .event-card { color: #151515; }
+.agenda-page .event-card.block { color: var(--text); }
+.agenda-page .client-card {
+  display: flex;
+  flex-direction: column;
+  align-items: start;
+  gap: 6px;
+  min-height: 124px;
+  overflow-wrap: anywhere;
+}
+.agenda-page .client-avatar { margin-bottom: 4px; }
+.agenda-page .client-card h3 { margin: 0; }
+.agenda-page .client-value { position: static; margin-top: 4px; }
+.agenda-page .finance-action.active { background: var(--surface3); border-color: var(--accent); }
+.agenda-page .finance-action strong,
+.agenda-page .summary-amounts,
+.console-page .card strong { font-variant-numeric: tabular-nums; }
+
+.agenda-page .bottom-nav {
+  background: var(--surface);
+  border-color: var(--line);
+  box-shadow: var(--shadow);
+  gap: 4px;
+}
+.agenda-page .bottom-nav button {
+  min-height: 44px;
+  color: var(--muted);
+  transform: none;
+  box-shadow: none;
+}
+.agenda-page .bottom-nav button:hover,
+.agenda-page .bottom-nav button.active,
+.agenda-page:has(.agent-chat[open]) #agent-chat-nav {
+  background: var(--surface3);
+  color: var(--text);
+}
+.agenda-page .bottom-nav button.active::after { display: none; }
+.nav-consoles { display: none; }
+
+.agenda-page .agent-chat-content { gap: 6px; }
+.agenda-page .agent-chat-message { background: var(--surface); font-size: 14px; }
+.agenda-page .agent-chat-message[data-role="user"] { background: var(--surface2); }
+.agent-voice-buttons button { display: inline-flex; align-items: center; gap: 6px; }
+.agent-voice-buttons button[hidden],
+.agent-voice-buttons .voice-alternate,
+.agent-voice-buttons button[aria-pressed="true"] .ui-icon:not(.voice-alternate) { display: none; }
+.agent-voice-buttons button[aria-pressed="true"] .voice-alternate { display: inline; }
+
+.console-page :is(header, .card, .panel, .notice, aside, dialog, .bubble, .chat-message, #status:not(:empty)) {
+  background: var(--surface);
+  color: var(--text);
+  border-color: var(--line);
+  box-shadow: none;
+}
+.console-page :is(a, .brand) { color: var(--text); }
+.console-page :is(.brand small, .intro p, label, .card span, .hint, .chat-heading span, .row small, .empty, .muted, footer, th, .chat-message small) {
+  color: var(--muted);
+}
+.console-page .eyebrow { color: var(--muted) !important; }
+.console-page .badge {
+  background: var(--surface2);
+  color: var(--muted);
+  border: 1px solid var(--line);
+}
+.console-page :is(input, select, textarea, button) {
+  background: var(--surface2);
+  color: var(--text);
+  border-color: var(--line2);
+  font-family: inherit;
+}
+.console-page button { min-height: 44px; }
+.console-page :is(button.primary, nav button[aria-pressed="true"]) {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+.console-page :is(button:hover, .bubble.contact, .chat-message.user) { background: var(--surface3); }
+.console-page :is(button.primary, nav button[aria-pressed="true"]):hover { background: #fff; }
+.console-page :is(td, th) { border-color: var(--line); }
+
+@media (min-width: 1000px) {
+  .agenda-page .app-shell {
+    margin-inline-start: var(--sidebar-width);
+    padding: 24px clamp(16px, 2.4vw, 36px) 80px;
+  }
+  .agenda-page .header-actions a.text-button { display: none; }
+  .agenda-page .bottom-nav {
+    inset: 0 auto 0 0;
+    width: var(--sidebar-width);
+    overflow-y: auto;
+    transform: none;
+    flex-direction: column;
+    padding: 28px 12px;
+    border: 0;
+    border-right: 1px solid var(--line);
+    border-radius: 0;
+    box-shadow: none;
+  }
+  .agenda-page .bottom-nav button { justify-content: start; padding-inline: 12px; font-size: 14px; }
+  .nav-consoles {
+    display: grid;
+    gap: 4px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+  }
+  .nav-consoles a {
+    display: flex;
+    align-items: center;
+    min-height: 44px;
+    padding-inline: 12px;
+    color: var(--muted);
+    text-decoration: none;
+    border-radius: 8px;
+  }
+  .nav-consoles a:hover { background: var(--surface3); color: var(--text); }
+  .agenda-page .fab { bottom: 20px; }
+  .agenda-page .payment-bar { bottom: 16px; }
+  .agenda-page:has(.agent-chat[open]) .client-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)); }
+}
+
+@media (max-width: 999px) {
+  .agenda-page .app-shell { padding-bottom: calc(116px + env(safe-area-inset-bottom)); }
+  .agenda-page .bottom-nav { bottom: calc(8px + env(safe-area-inset-bottom)); }
+  .agenda-page .fab { bottom: calc(94px + env(safe-area-inset-bottom)); }
+  .agenda-page .payment-bar { bottom: calc(82px + env(safe-area-inset-bottom)); }
+}
+@media (max-width: 640px) {
+  .agenda-page .topbar { flex-wrap: wrap; }
+  .agenda-page .header-actions { justify-content: start; }
+  .agenda-page .header-actions a.text-button { padding-inline: 8px; }
+}
+@media (max-width: 999px) and (max-height: 540px) {
+  .agent-chat .agent-chat-content { overflow-y: auto; }
+  .agent-chat .agent-chat-log { flex: 1 0 76px; }
+  .agent-chat :is(.agent-chat-note, .agent-chat-examples) { display: none; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .agenda-page :is(button, .client-card, .screen, .modal),
+  .console-page button { transition-duration: 150ms; animation-duration: 150ms; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .console-page *, .console-page *::before, .console-page *::after {
+    transition: none !important;
+    animation: none !important;
+    scroll-behavior: auto !important;
+  }
+}

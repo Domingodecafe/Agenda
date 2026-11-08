@@ -4,14 +4,15 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Fin — Financeiro da marca</title><link rel="icon" href="icon.svg">
   <link rel="stylesheet" href="fin-console.css">
-  <script src="ana-environment.js?v=ana-dev-13" defer></script>
+  <link rel="stylesheet" href="graphite.css?v=ana-dev-16">
+  <script src="ana-environment.js?v=ana-dev-16" defer></script>
   <script src="fin-core.js?v=ana-dev-8" defer></script>
   <script src="fin-ledger.js?v=ana-dev-8" defer></script>
   <script src="fin-store.js?v=ana-dev-13" defer></script>
   <script src="fin-assistant.js?v=ana-dev-8" defer></script>
   <script src="fin-console.js?v=ana-dev-8" defer></script>
 </head>
-<body><main>
+<body class="console-page fin-console-page"><main>
   <header><div><span class="eyebrow">MARCA · FINANCEIRO</span><h1>Fin<span class="badge">DEV</span></h1><p>Clareza para cuidar do seu negócio.</p></div><a href="index.html">Voltar à Agenda ↗</a></header>
   <aside>Laboratório local · Use dados fictícios. A leitura vem da Agenda Ana DEV neste navegador.</aside>
   <div class="toolbar"><label>Mês do caixa <input id="month" type="month" required></label><button id="refresh">Atualizar dados</button><button id="export" disabled>Exportar para o Fin</button><a href="#conversation">Conversar com o Fin ↓</a></div>

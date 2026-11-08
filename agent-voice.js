@@ -6,11 +6,15 @@
     let active;
     let closing = Promise.resolve();
 
+    const startLabel = startButton.querySelector?.('[data-voice-label]') || startButton;
+    const muteLabel = muteButton.querySelector?.('[data-voice-label]') || muteButton;
+
     function render(message = '') {
-      startButton.textContent = active ? 'Encerrar voz' : 'Iniciar voz';
+      startButton.setAttribute('aria-pressed', String(Boolean(active)));
+      startLabel.textContent = active ? 'Encerrar voz' : 'Iniciar voz';
       muteButton.disabled = interruptButton.disabled = !active?.ready;
       muteButton.setAttribute('aria-pressed', String(Boolean(active?.muted)));
-      muteButton.textContent = active?.muted ? 'Ativar microfone' : 'Silenciar microfone';
+      muteLabel.textContent = active?.muted ? 'Ativar microfone' : 'Silenciar microfone';
       playbackButton.hidden = !active?.playbackBlocked;
       status.textContent = message;
     }

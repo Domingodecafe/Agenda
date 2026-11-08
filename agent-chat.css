@@ -75,7 +75,6 @@
 }
 @media (min-width: 1000px) {
   body:has(.agent-chat[open]) .app-shell { margin-inline-end: 420px; }
-  body:has(.agent-chat[open]) .bottom-nav { left: calc((100% - 420px) / 2); }
   body:has(.agent-chat[open]) .fab { right: 440px; }
   .agent-chat.modal[open] {
     inset: 0 0 0 auto;
