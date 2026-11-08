@@ -312,6 +312,10 @@
   function setTab(tab) {
     const enteringSummary = tab === 'summary' && activeTab !== 'summary';
     activeTab = tab;
+    const pageTitle = $('#page-title');
+    if (pageTitle) pageTitle.textContent = { agenda: 'Programação da semana', clients: 'Clientes', summary: 'Financeiro' }[tab];
+    const menu = $('#agenda-menu');
+    if (menu) menu.open = false;
     $$('.screen').forEach(screen => screen.classList.toggle('active', screen.id === `${tab}-screen`));
     $$('.bottom-nav button[data-tab]').forEach(button => {
       const selected = button.dataset.tab === tab;
@@ -367,12 +371,12 @@
     const height = Math.max(26, end - start - 2);
     const title = appointmentDisplayName(item);
     const subtitle = item.kind === 'block' ? `${item.start} — ${item.end}` : `${item.start} · ${item.modality}`;
-    return `<button class="event-card ${eventClass(item)}" data-event-id="${item.id}" style="top:${top}px;height:${height}px" type="button" title="${escapeHTML(title)}"><b>${escapeHTML(title)}</b><span>${escapeHTML(subtitle)}</span></button>`;
+    return `<button class="event-card ${eventClass(item)}" data-event-id="${item.id}" style="top:${top}px;height:${height}px;--event-offset:${start - HOURS_START * 60};--event-duration:${end - start}" type="button" title="${escapeHTML(title)}"><b>${escapeHTML(title)}</b><span>${escapeHTML(subtitle)}</span><small class="aqua-event-time" aria-hidden="true">${escapeHTML(item.start)}</small></button>`;
   }
 
   function timeAxis() {
     let html = '<div class="time-axis">';
-    for (let h = HOURS_START; h <= HOURS_END; h += 1) html += `<span class="time-label" style="top:${(h-HOURS_START)*60}px">${pad(h)}:00</span>`;
+    for (let h = HOURS_START; h <= HOURS_END; h += 1) html += `<span class="time-label" style="top:${(h-HOURS_START)*60}px;--hour-index:${h-HOURS_START}">${pad(h)}:00</span>`;
     return `${html}</div>`;
   }
 
@@ -386,8 +390,23 @@
         <button class="day-head week-day-button" type="button" data-open-day="${isoDate(date)}" aria-label="Abrir ${escapeHTML(date.toLocaleDateString('pt-BR'))} na visão Dia"><span>${weekdays[date.getDay()]}</span><b>${date.getDate()}</b></button>
         <div class="day-hit-area" data-date="${isoDate(date)}"></div>${relevantEvents(date).map(eventCard).join('')}</div>`;
     }
-    $('#calendar').innerHTML = `${html}</div>`;
+    $('#calendar').innerHTML = `${html}<div class="aqua-now" hidden><time></time></div></div>`;
+    refreshWeekClock();
     positionMobileWeek();
+  }
+
+  function refreshWeekClock() {
+    const marker = $('.aqua-now');
+    if (!marker) return;
+    const now = new Date();
+    const offset = now.getHours() * 60 + now.getMinutes() - HOURS_START * 60;
+    const visible = offset >= 0 && offset < (HOURS_END - HOURS_START) * 60 &&
+      Boolean($('.week-view .day-column.today'));
+    marker.hidden = !visible;
+    if (!visible) return;
+    marker.style.setProperty('--now-offset', offset);
+    const clock = marker.querySelector('time');
+    clock.dateTime = clock.textContent = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
   }
 
   function positionMobileWeek() {
@@ -1271,7 +1290,7 @@
       const hitArea = event.target.closest('.day-hit-area[data-date]');
       if (hitArea) {
         const rect = hitArea.getBoundingClientRect();
-        const hourOffset = Math.max(0, Math.min(HOURS_END - HOURS_START - 1, Math.floor((event.clientY - rect.top) / 60)));
+        const hourOffset = Math.max(0, Math.min(HOURS_END - HOURS_START - 1, Math.floor((event.clientY - rect.top) / (rect.height / (HOURS_END - HOURS_START)))));
         const total = (HOURS_START + hourOffset) * 60;
         openNewAppointment(hitArea.dataset.date, `${pad(Math.floor(total/60))}:${pad(total%60)}`);
       }
@@ -1368,9 +1387,10 @@
     populateTimeOptions();
     bindEvents();
     bindCalendarSwipe();
-    setView(matchMedia('(max-width: 640px)').matches ? 'day' : state.settings.view || 'week');
+    setView('week');
     setTab('agenda');
     window.setInterval(refreshSummaryStatus, 60000);
+    window.setInterval(refreshWeekClock, 30000);
     document.addEventListener('visibilitychange', refreshSummaryStatus);
     if (environment.shared) {
       window.setInterval(() => refreshSharedAgenda(), 10000);

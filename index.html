@@ -3,16 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content">
-  <meta name="theme-color" content="#101416">
+  <meta name="theme-color" content="#f8f3e7">
   <meta name="description" content="Ana em desenvolvimento. Use exclusivamente dados fictícios.">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css?v=ana-dev-8">
   <link rel="stylesheet" href="agent-chat.css?v=ana-dev-17">
   <link rel="stylesheet" href="graphite.css?v=ana-dev-16">
+  <link rel="stylesheet" href="aquarela.css?v=ana-dev-18">
   <title>Ana DEV — Agenda de testes</title>
 </head>
-<body class="agenda-page">
+<body class="agenda-page aquarela-page">
   <!-- Lucide 1.67.0 · LICENSE-LUCIDE.txt -->
   <svg hidden aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
     <symbol id="lucide-calendar-days" viewBox="0 0 24 24">
@@ -73,11 +74,10 @@
   </svg>
   <div id="app" class="app-shell">
     <header class="topbar">
-      <div class="brand"><span class="brand-mark">A</span><h1>Ana DEV</h1><span class="app-version" aria-label="Ambiente de desenvolvimento">DEV</span></div>
+      <div class="brand"><div><span class="eyebrow">Agenda · Aquarela Brasileira</span><h1 id="page-title">Programação da semana</h1></div></div>
       <div class="header-actions">
         <a class="text-button" href="ana-console.html">Atendimento Ana</a>
         <a class="text-button" href="fin-console.html">Financeiro Fin</a>
-        <button id="agent-chat-open" class="secondary-button" type="button" aria-haspopup="dialog" disabled>Chat</button>
         <button id="install-button" class="icon-button install-button hidden" type="button" title="Instalar aplicativo" aria-label="Instalar aplicativo">⇩</button>
         <button id="today-header" class="text-button" type="button">Hoje</button>
         <span class="local-badge"><i></i> TESTE · Somente dados fictícios</span>
@@ -129,23 +129,26 @@
     </main>
 
     <button id="fab" aria-label="Novo atendimento" class="fab" type="button"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><use href="#lucide-plus"/></svg><b>Novo atendimento</b></button>
+    <button id="agent-chat-open" class="primary-button aqua-speak" type="button" aria-haspopup="dialog" disabled><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M2 10v3M6 6v11M10 3v18M14 8v7M18 5v13M22 10v3"/></svg><span>Falar</span></button>
+    <details id="agenda-menu" class="aqua-menu"><summary>Menu</summary>
     <nav class="bottom-nav" aria-label="Navegação principal">
       <button data-tab="agenda" class="active" type="button"><span class="nav-icon"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><use href="#lucide-calendar-days"/></svg></span><span>Agenda</span></button>
       <button data-tab="clients" type="button"><span class="nav-icon"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><use href="#lucide-users"/></svg></span><span>Clientes</span></button>
-      <button data-tab="summary" type="button"><span class="nav-icon"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><use href="#lucide-wallet"/></svg></span><span>Resumo</span></button>
+      <button data-tab="summary" type="button"><span class="nav-icon"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><use href="#lucide-wallet"/></svg></span><span>Financeiro</span></button>
       <button id="agent-chat-nav" type="button" aria-haspopup="dialog" aria-label="Abrir chat dos agentes" disabled><span class="nav-icon"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><use href="#lucide-message-circle"/></svg></span><span>Chat</span></button>
       <div class="nav-consoles">
         <a href="ana-console.html">Atendimento Ana</a>
         <a href="fin-console.html">Financeiro Fin</a>
       </div>
     </nav>
+    </details>
   </div>
 
   <dialog id="agent-chat" class="modal agent-chat" aria-labelledby="agent-chat-title">
     <div class="agent-chat-content">
       <div class="modal-header">
         <div><span class="eyebrow">AGENDA DEV</span><h2 id="agent-chat-title">Chat com os agentes</h2></div>
-        <button id="agent-chat-close" class="close-button" type="button" aria-label="Fechar chat">←</button>
+        <button id="agent-chat-close" class="close-button" type="button" aria-label="Recolher conversa">Recolher ↓</button>
       </div>
       <div class="segmented" role="group" aria-label="Agente">
         <button type="button" data-agent="ana" aria-label="Ana" aria-pressed="true" class="active">Ana <small>Secretaria</small></button>
@@ -266,7 +269,7 @@
   <script src="ana-policy.js?v=ana-dev-13" defer></script>
   <script src="fin-core.js?v=ana-dev-8" defer></script>
   <script src="agent-voice.js?v=ana-dev-17" defer></script>
-  <script src="agent-chat.js?v=ana-dev-17" defer></script>
-  <script src="app.js?v=ana-dev-13" defer></script>
+  <script src="agent-chat.js?v=ana-dev-18" defer></script>
+  <script src="app.js?v=ana-dev-18" defer></script>
 </body>
 </html>

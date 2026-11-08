@@ -121,6 +121,9 @@
       agent, { messages: [], draft: '', busy: false, status: '', expired: false, turns: new Map(), recovering: new Set() },
     ]));
     let selected = 'ana';
+    try {
+      if (localStorage.getItem('ana-dev-last-agent') === 'fin') selected = 'fin';
+    } catch { /* Storage may be unavailable in private browsing. */ }
     const voiceStart = byId('agent-voice-start');
     const voiceMode = byId('agent-voice-mode');
     const reconnect = byId('agent-voice-reconnect');
@@ -231,11 +234,15 @@
       if (voice?.active) void voice.stop('Voz encerrada.');
       else startVoice();
     });
-    dialog.addEventListener('close', () => { if (!dialog.open) void voice?.stop(); });
+    dialog.addEventListener('close', () => { if (!dialog.open) render(); });
 
     function render() {
       const thread = conversations[selected];
       const name = selected === 'ana' ? 'Ana' : 'Fin';
+      const title = byId('agent-chat-title');
+      if (title) title.textContent = 'Conversa com ' + name;
+      const speakLabel = open.querySelector('span');
+      if (speakLabel) speakLabel.textContent = voice?.active ? name + ' · Voz ativa' : 'Falar';
       log.setAttribute('aria-label', 'Conversa com ' + name);
       log.replaceChildren(...thread.messages.map(message => {
         const { role, content, details, appointment, confirmation, review } = message;
@@ -353,8 +360,15 @@
       log.scrollTop = log.scrollHeight;
       fitViewport();
     }
-    open.addEventListener('click', showChat);
-    openNav.addEventListener('click', showChat);
+    open.addEventListener('click', () => {
+      showChat();
+      startVoice();
+    });
+    openNav.addEventListener('click', () => {
+      const menu = byId('agenda-menu');
+      if (menu) menu.open = false;
+      showChat();
+    });
     open.disabled = false;
     openNav.disabled = false;
     example.addEventListener('click', () => {
@@ -372,6 +386,8 @@
       const restartVoice = voice?.active;
       if (restartVoice) void voice.stop();
       selected = button.dataset.agent;
+      try { localStorage.setItem('ana-dev-last-agent', selected); }
+      catch { /* The selection remains available for this visit. */ }
       if (restartVoice) startVoice();
       render();
     });

@@ -31,6 +31,7 @@ const files = new Map([
   ['/fin-store.js', 'text/javascript; charset=utf-8'],
   ['/verificar-isolamento.html', 'text/html; charset=utf-8'],
   ['/verificar-isolamento.js', 'text/javascript; charset=utf-8'],
+  ['/aquarela.css', 'text/css; charset=utf-8'],
   ['/graphite.css', 'text/css; charset=utf-8'],
   ['/styles.css', 'text/css; charset=utf-8'],
   ['/manifest.webmanifest', 'application/manifest+json'],
