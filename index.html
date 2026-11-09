@@ -8,7 +8,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css?v=ana-dev-8">
-  <link rel="stylesheet" href="agent-chat.css?v=ana-dev-17">
+  <link rel="stylesheet" href="agent-chat.css?v=ana-dev-25">
   <link rel="stylesheet" href="graphite.css?v=ana-dev-16">
   <link rel="stylesheet" href="aquarela.css?v=ana-dev-24">
   <title>Ana DEV — Agenda de testes</title>
@@ -154,31 +154,12 @@
         <button type="button" data-agent="ana" aria-label="Ana" aria-pressed="true" class="active">Ana <small>Secretaria</small></button>
         <button type="button" data-agent="fin" aria-label="Fin" aria-pressed="false">Fin <small>Financeiro</small></button>
       </div>
-      <p class="agent-chat-note">Use dados fictícios. As mensagens e os resultados das consultas são enviados à OpenAI.</p>
-      <div class="agent-chat-examples"><p id="agent-chat-intro"></p><button id="agent-chat-example" class="secondary-button" type="button"></button></div>
       <div id="agent-chat-log" class="agent-chat-log" role="log" aria-label="Conversa"></div>
-      <section id="agent-voice-controls" aria-label="Modo de voz" hidden>
-        <div class="agent-voice-buttons">
-          <button id="agent-voice-start" class="secondary-button" type="button" aria-describedby="agent-voice-note"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><use href="#lucide-mic"/></svg><svg class="ui-icon voice-alternate" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><use href="#lucide-square"/></svg><span data-voice-label>Iniciar voz</span></button>
-          <button id="agent-voice-mute" class="secondary-button" type="button" aria-pressed="false" disabled><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><use href="#lucide-mic-off"/></svg><svg class="ui-icon voice-alternate" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><use href="#lucide-mic"/></svg><span data-voice-label>Silenciar microfone</span></button>
-          <button id="agent-voice-interrupt" class="secondary-button" type="button" disabled><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><use href="#lucide-square"/></svg><span data-voice-label>Interromper resposta</span></button>
-          <label>Modo de voz
-            <select id="agent-voice-mode">
-              <option value="continuous">Conversa contínua</option>
-              <option value="hold">Segure para falar</option>
-            </select>
-          </label>
-          <button id="agent-voice-hold" class="primary-button" type="button" aria-pressed="false" hidden disabled>Segure para falar</button>
-          <button id="agent-voice-reconnect" class="secondary-button" type="button" hidden>Reconectar</button>
-          <button id="agent-voice-text" class="secondary-button" type="button" hidden>Continuar por texto</button>
-          <button id="agent-voice-play" class="secondary-button" type="button" hidden>Ativar áudio</button>
-        </div>
-        <small id="agent-voice-note">Durante a sessão de voz, o áudio do microfone é enviado à OpenAI.</small>
-        <div id="agent-voice-status" role="status"></div>
-        <audio id="agent-voice-audio" autoplay playsinline></audio>
-      </section>
+      <p id="agent-voice-status" role="status"></p>
+      <audio id="agent-voice-audio" autoplay playsinline></audio>
       <form id="agent-chat-form">
         <label class="field" for="agent-chat-message"><span>Pergunta</span><input id="agent-chat-message" maxlength="1000" autocomplete="off" required></label>
+        <button id="agent-voice-start" class="secondary-button" type="button" aria-pressed="false" aria-describedby="agent-voice-status" hidden><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><use href="#lucide-mic"/></svg><span data-voice-label>Falar</span></button>
         <button id="agent-chat-send" class="primary-button" type="submit">Enviar</button>
       </form>
       <p id="agent-chat-status" role="status"></p>
@@ -268,8 +249,8 @@
   <script src="cloud-sync.js?v=ana-dev-8" defer></script>
   <script src="ana-policy.js?v=ana-dev-13" defer></script>
   <script src="fin-core.js?v=ana-dev-8" defer></script>
-  <script src="agent-voice.js?v=ana-dev-20" defer></script>
-  <script src="agent-chat.js?v=ana-dev-20" defer></script>
+  <script src="agent-voice.js?v=ana-dev-25" defer></script>
+  <script src="agent-chat.js?v=ana-dev-25" defer></script>
   <script src="app.js?v=ana-dev-24" defer></script>
 </body>
 </html>

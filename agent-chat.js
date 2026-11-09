@@ -112,9 +112,6 @@
     const log = byId('agent-chat-log');
     const status = byId('agent-chat-status');
     const login = byId('agent-chat-login');
-    const intro = byId('agent-chat-intro');
-    const example = byId('agent-chat-example');
-    const examples = example.parentElement;
     const desktop = matchMedia('(min-width: 1000px)');
     const selectors = [...dialog.querySelectorAll('[data-agent]')];
     const conversations = Object.fromEntries(['ana', 'fin'].map(agent => [
@@ -127,7 +124,6 @@
     const voiceStart = byId('agent-voice-start');
     const quickVoiceLabel = open.querySelector('span');
     const quickVoiceStatus = byId('quick-voice-status');
-    const playbackButton = byId('agent-voice-play');
     let quickVoicePlaybackBlocked = false;
 
     function showQuickVoiceState({ active, ready, muted, playbackBlocked, mode, message }) {
@@ -140,13 +136,9 @@
         mode === 'hold' ? name + ' · Segure no chat' : name + ' · Ouvindo';
       if (quickVoiceStatus) quickVoiceStatus.textContent = !active || playbackBlocked ? message : '';
     }
-    const voiceMode = byId('agent-voice-mode');
-    const reconnect = byId('agent-voice-reconnect');
-    const continueText = byId('agent-voice-text');
     const voice = globalThis.AgendaHostedConfig?.voice && voiceStart ? globalThis.AgentVoice?.install({
-      controls: byId('agent-voice-controls'), startButton: voiceStart, muteButton: byId('agent-voice-mute'),
-      interruptButton: byId('agent-voice-interrupt'), playbackButton,
-      status: byId('agent-voice-status'), audio: byId('agent-voice-audio'), holdButton: byId('agent-voice-hold'), onEvent: handleVoiceEvent, onState: render, onStatus: showQuickVoiceState,
+      startButton: voiceStart, status: byId('agent-voice-status'), audio: byId('agent-voice-audio'),
+      onEvent: handleVoiceEvent, onState: render, onStatus: showQuickVoiceState,
     }) : undefined;
 
     function context(thread) {
@@ -200,7 +192,6 @@
         thread.status = event.message;
       } else if (event.type === 'disconnected') {
         thread.recovering.add(event.session);
-        thread.disconnected = true;
         thread.status = 'A conexão de voz caiu. Verificando o resultado dos comandos…';
       } else if (['recovery-complete', 'recovery-unknown'].includes(event.type)) {
         thread.recovering.delete(event.session);
@@ -222,33 +213,17 @@
     function startVoice() {
       const thread = conversations[selected];
       if (!voice || voice.active || busy(thread)) return;
-      thread.disconnected = false;
-      void voice.start(selected, context(thread), voiceMode?.value);
+      void voice.start(selected, context(thread), 'continuous');
     }
 
-    reconnect?.addEventListener('click', startVoice);
-    continueText?.addEventListener('click', () => {
-      conversations[selected].disconnected = false;
-      render();
-      input.focus();
-    });
-    let chosenMode = 'continuous';
-    voiceMode?.addEventListener('change', () => {
-      if (voice?.capturing || busy(conversations[selected])) {
-        voiceMode.value = chosenMode;
-        return;
-      }
-      chosenMode = voiceMode.value;
-      if (voice?.active) {
-        void voice.stop();
-        startVoice();
-      }
-    });
-
-    voiceStart?.addEventListener('click', () => {
-      if (voice?.active) void voice.stop('Voz encerrada.');
+    function toggleVoice() {
+      if (!voice) return;
+      if (quickVoicePlaybackBlocked) void voice.resumeAudio();
+      else if (voice.active) void voice.stop('Voz encerrada.');
       else startVoice();
-    });
+    }
+
+    voiceStart?.addEventListener('click', toggleVoice);
     dialog.addEventListener('close', () => { if (!dialog.open) render(); });
 
     function render() {
@@ -335,19 +310,11 @@
       log.scrollTop = log.scrollHeight;
       input.value = thread.draft;
       input.readOnly = submit.disabled = busy(thread) || Boolean(voice?.active);
-      if (reconnect && continueText) {
-        reconnect.hidden = continueText.hidden = !thread.disconnected;
-        reconnect.disabled = continueText.disabled = busy(thread);
-      }
       if (voiceStart && voice) voiceStart.disabled = busy(thread) && !voice.active;
       open.disabled = !voice || (busy(thread) && !voice.active);
-      examples.hidden = thread.messages.length > 0 || thread.busy;
-      input.placeholder = selected === 'ana' ? 'Quais horários estão livres amanhã?' : 'Quanto recebi este mês?';
+      input.placeholder = 'Escreva uma mensagem…';
       status.textContent = thread.status;
       login.hidden = !thread.expired;
-      intro.textContent = selected === 'ana' ? 'Consulte horários ou peça para agendar e alterar atendimentos.' : 'Consulte os recebimentos da sua Agenda por mês.';
-      example.textContent = input.placeholder;
-      example.disabled = thread.busy;
       for (const button of selectors) {
         const active = button.dataset.agent === selected;
         button.classList.toggle('active', active);
@@ -374,21 +341,7 @@
       log.scrollTop = log.scrollHeight;
       fitViewport();
     }
-    open.addEventListener('click', () => {
-      if (!voice) return;
-      if (quickVoicePlaybackBlocked) {
-        playbackButton.click();
-        return;
-      }
-      if (voice.active) {
-        void voice.stop('Voz encerrada.');
-        return;
-      }
-      if (busy(conversations[selected])) return;
-      chosenMode = 'continuous';
-      if (voiceMode) voiceMode.value = chosenMode;
-      startVoice();
-    });
+    open.addEventListener('click', toggleVoice);
     openNav.addEventListener('click', () => {
       const menu = byId('agenda-menu');
       if (menu) menu.open = false;
@@ -396,11 +349,6 @@
     });
     open.disabled = !voice;
     openNav.disabled = false;
-    example.addEventListener('click', () => {
-      conversations[selected].draft = example.textContent;
-      input.value = example.textContent;
-      input.focus();
-    });
     byId('agent-chat-close').addEventListener('click', () => dialog.close());
     dialog.addEventListener('keydown', event => {
       if (event.key === 'Escape' && desktop.matches) dialog.close();

@@ -25,10 +25,6 @@
 .agent-chat .segmented { width: 100%; }
 .agent-chat .segmented button { flex: 1; min-height: 44px; }
 .agent-chat .segmented small { display: block; font-weight: 400; }
-.agent-chat-examples { font-size: .875rem; margin-bottom: 8px; }
-.agent-chat-examples p { margin: 0 0 8px; }
-.agent-chat-examples button { text-align: left; min-height: 40px; }
-.agent-chat-note, #agent-chat-status { color: var(--muted); font-size: .85rem; }
 .agent-chat-log {
   display: flex;
   flex: 1;
@@ -61,18 +57,11 @@
 #agent-chat-send, #agent-chat-open { min-height: 44px; }
 #agent-chat-status { max-height: 4.5em; margin: 6px 0 0; overflow-wrap: anywhere; }
 #agent-chat-status:empty { display: none; }
-#agent-voice-controls { flex-shrink: 0; padding-block: 8px; color: var(--muted); font-size: .85rem; }
-.agent-voice-buttons { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px; }
 #agent-voice-hold { touch-action: none; user-select: none; }
-.agent-voice-buttons button { min-height: 44px; }
 @media (max-width: 640px) {
   .agenda-sync-status { padding-inline: 16px; }
-  .agent-chat-content:has(#agent-chat-message:focus) :is(.agent-chat-examples, .agent-chat-note, .eyebrow) { display: none; }
   :is(#appointment-dialog, #payment-dialog) .form-grid { grid-template-columns: minmax(0, 1fr); }
   .topbar .header-actions { flex-wrap: wrap; justify-content: flex-end; }
-}
-@media (max-height: 460px) {
-  .agent-chat-note, .agent-chat-examples, .agent-chat .eyebrow { display: none; }
 }
 @media (min-width: 1000px) {
   body:has(.agent-chat[open]) .app-shell { margin-inline-end: 420px; }
@@ -83,4 +72,20 @@
     height: 100dvh;
     border-inline-start: 1px solid var(--line);
   }
+}
+
+#agent-voice-start {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+#agent-voice-start .ui-icon { width: 16px; height: 16px; }
+#agent-voice-start[hidden], #agent-voice-status:empty { display: none; }
+#agent-voice-status { margin: 0; color: var(--muted); font-size: .8rem; }
+@media (max-width: 390px) {
+  #agent-chat-form { gap: 5px; }
+  #agent-chat-form button { padding-inline: 8px; font-size: 12px; }
 }

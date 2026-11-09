@@ -7,15 +7,19 @@
     let closing = Promise.resolve();
 
     const startLabel = startButton.querySelector?.('[data-voice-label]') || startButton;
-    const muteLabel = muteButton.querySelector?.('[data-voice-label]') || muteButton;
+    const muteLabel = muteButton?.querySelector?.('[data-voice-label]') || muteButton;
 
     function render(message = '') {
       startButton.setAttribute('aria-pressed', String(Boolean(active)));
-      startLabel.textContent = active ? 'Encerrar voz' : 'Iniciar voz';
-      muteButton.disabled = interruptButton.disabled = !active?.ready;
-      muteButton.setAttribute('aria-pressed', String(Boolean(active?.muted)));
-      muteLabel.textContent = active?.muted ? 'Ativar microfone' : 'Silenciar microfone';
-      playbackButton.hidden = !active?.playbackBlocked;
+      startLabel.textContent = active?.playbackBlocked ? 'Ativar áudio' :
+        !active ? 'Falar' : active.ready ? 'Encerrar' : 'Conectando…';
+      if (muteButton) {
+        muteButton.disabled = !active?.ready;
+        muteButton.setAttribute('aria-pressed', String(Boolean(active?.muted)));
+        muteLabel.textContent = active?.muted ? 'Ativar microfone' : 'Silenciar microfone';
+      }
+      if (interruptButton) interruptButton.disabled = !active?.ready;
+      if (playbackButton) playbackButton.hidden = !active?.playbackBlocked;
       if (holdButton) {
         holdButton.hidden = active?.mode !== 'hold';
         holdButton.disabled = !active?.ready || Boolean(active.muted);
@@ -224,24 +228,26 @@
       }
     }
 
-    controls.hidden = false;
+    if (controls) controls.hidden = false;
     if (!navigator.mediaDevices?.getUserMedia || !globalThis.RTCPeerConnection || !globalThis.EventSource) {
       startButton.disabled = true;
       render('Voz indisponível neste navegador. Você pode usar o chat escrito.');
       return;
     }
-    muteButton.addEventListener('click', () => {
+    muteButton?.addEventListener('click', () => {
       if (!active?.ready) return;
       active.muted = !active.muted;
       if (active.muted) void endCapture(true);
       active.track.enabled = !active.muted && active.mode === 'continuous';
       render(active.muted ? 'Microfone silenciado.' : 'Microfone ligado.');
     });
-    interruptButton.addEventListener('click', () => {
+    interruptButton?.addEventListener('click', () => {
       if (!active?.ready) return;
       fetch(active.url + '/interrupt', { method: 'POST', signal: AbortSignal.timeout(5000) }).catch(() => {});
     });
-    playbackButton.addEventListener('click', () => { if (active) void play(active); });
+    const resumeAudio = () => active && play(active);
+    playbackButton?.addEventListener('click', resumeAudio);
+    startButton.hidden = false;
     holdButton?.addEventListener('pointerdown', event => {
       if (!event.isPrimary || event.button !== 0) return;
       holdButton.setPointerCapture(event.pointerId);
@@ -270,7 +276,7 @@
       if (document.hidden) void endCapture(true);
     });
     globalThis.addEventListener('pagehide', () => stop('', false));
-    return { start, stop, get active() { return Boolean(active); }, get capturing() { return Boolean(active?.capture || active?.speaking); } };
+    return { start, stop, resumeAudio, get active() { return Boolean(active); }, get capturing() { return Boolean(active?.capture || active?.speaking); } };
   }
 
   globalThis.AgentVoice = Object.freeze({ install });
