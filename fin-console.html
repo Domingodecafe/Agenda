@@ -3,16 +3,40 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Fin — Financeiro da marca</title><link rel="icon" href="icon.svg">
-  <link rel="stylesheet" href="fin-console.css">
+  <link rel="stylesheet" href="fin-console.css?v=ana-dev-23">
   <link rel="stylesheet" href="graphite.css?v=ana-dev-16">
   <script src="ana-environment.js?v=ana-dev-16" defer></script>
   <script src="fin-core.js?v=ana-dev-8" defer></script>
   <script src="fin-ledger.js?v=ana-dev-8" defer></script>
-  <script src="fin-store.js?v=ana-dev-13" defer></script>
+  <script src="fin-store.js?v=ana-dev-23" defer></script>
   <script src="fin-assistant.js?v=ana-dev-8" defer></script>
-  <script src="fin-console.js?v=ana-dev-8" defer></script>
+  <script src="fin-console.js?v=ana-dev-23" defer></script>
 </head>
-<body class="console-page fin-console-page"><main>
+<body class="console-page fin-console-page">
+<template id="shared-fin-template">
+  <main class="fin-home">
+    <header class="fin-heading">
+      <div><a href="./">‹ Agenda</a><p class="fin-brand">Aquarela Brasileira</p><h1>Financeiro</h1></div>
+    </header>
+    <label class="fin-month">Mês <input id="fin-month" type="month" required></label>
+    <div class="fin-retry" hidden>
+      <p role="status">Não foi possível atualizar os dados da Agenda.</p>
+      <button type="button">Tentar novamente</button>
+    </div>
+    <section class="fin-totals" aria-label="Resumo do mês">
+      <article><span>Recebido</span><strong id="fin-received">—</strong></article>
+      <article><span>A receber</span><strong id="fin-open">—</strong></article>
+    </section>
+    <section class="fin-history" aria-labelledby="fin-history-title">
+      <div class="fin-history-head"><h2 id="fin-history-title">Histórico</h2>
+        <label>Situação <select id="fin-filter"><option value="all">Todos</option><option value="received">Recebidos</option><option value="open">Em aberto</option></select></label>
+      </div>
+      <p id="fin-empty" role="status">Carregando histórico…</p>
+      <ul id="fin-records"></ul>
+    </section>
+  </main>
+</template>
+<main>
   <header><div><span class="eyebrow">MARCA · FINANCEIRO</span><h1>Fin<span class="badge">DEV</span></h1><p>Clareza para cuidar do seu negócio.</p></div><a href="index.html">Voltar à Agenda ↗</a></header>
   <aside>Laboratório local · Use dados fictícios. A leitura vem da Agenda Ana DEV neste navegador.</aside>
   <div class="toolbar"><label>Mês do caixa <input id="month" type="month" required></label><button id="refresh">Atualizar dados</button><button id="export" disabled>Exportar para o Fin</button><a href="#conversation">Conversar com o Fin ↓</a></div>

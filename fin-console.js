@@ -4,6 +4,85 @@
   const $ = id => document.getElementById(id);
   const money = n => (n / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   const date = s => s ? s.split('-').reverse().join('/') : 'Sem data válida';
+  if (AnaEnvironment.shared) {
+    const template = $('shared-fin-template');
+    document.body.classList.add('fin-shared');
+    document.body.replaceChildren(template.content.cloneNode(true));
+    const month = $('fin-month');
+    const filter = $('fin-filter');
+    const list = $('fin-records');
+    const empty = $('fin-empty');
+    const retry = document.querySelector('.fin-retry');
+    let current = null;
+    let reading = false;
+    month.value = FinCore.dateParts().date.slice(0, 7);
+
+    function renderHistory() {
+      if (!current || !month.value) return;
+      const received = [];
+      const open = [];
+      for (const record of current.records) {
+        if (record.status === 'Pago') {
+          if ((record.paymentDate || record.sessionDate).startsWith(month.value)) received.push(record);
+        } else if (!record.cancelled && record.sessionDate.startsWith(month.value)) {
+          open.push(record);
+        }
+      }
+      const total = entries => money(entries.reduce((sum, item) => sum + item.amountCents, 0));
+      $('fin-received').textContent = total(received.filter(record => record.paymentDate));
+      $('fin-open').textContent = total(open);
+      const entries = filter.value === 'received' ? received : filter.value === 'open' ? open : [...received, ...open];
+      const day = record => record.paymentDate || record.sessionDate;
+      entries.sort((a, b) => day(b).localeCompare(day(a)) || a.endTime.localeCompare(b.endTime));
+      const rows = entries.map(record => {
+        const paid = record.status === 'Pago';
+        const item = document.createElement('li');
+        const who = document.createElement('div');
+        const name = document.createElement('strong');
+        name.textContent = current.names.get(record.appointmentId) || 'Cliente não identificado';
+        const when = document.createElement('small');
+        when.textContent = paid && record.paymentDate ? 'Pagamento em ' + date(record.paymentDate) :
+          'Atendimento em ' + date(record.sessionDate);
+        who.append(name, when);
+        const amount = document.createElement('div');
+        const value = document.createElement('strong');
+        value.textContent = money(record.amountCents);
+        const state = document.createElement('small');
+        state.textContent = paid ? record.paymentDate ? 'Recebido' : 'Pago · sem data' : 'Em aberto';
+        amount.append(value, state);
+        item.append(who, amount);
+        return item;
+      });
+      list.replaceChildren(...rows);
+      empty.hidden = rows.length > 0;
+      empty.textContent = 'Nenhuma movimentação para este filtro.';
+    }
+
+    async function update() {
+      if (reading) return;
+      reading = true;
+      retry.querySelector('button').disabled = true;
+      try {
+        current = await FinStore.agenda({ withNames: true });
+        renderHistory();
+        retry.hidden = true;
+      } catch {
+        retry.hidden = false;
+        if (!current) empty.hidden = true;
+      } finally {
+        reading = false;
+        retry.querySelector('button').disabled = false;
+      }
+    }
+    filter.addEventListener('change', renderHistory);
+    month.addEventListener('change', renderHistory);
+    retry.querySelector('button').addEventListener('click', update);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) void update(); });
+    setInterval(() => { if (!document.hidden) void update(); }, 60000);
+    void update();
+    return;
+  }
+
   let snapshot, ledger, report, reading = null, mutation = false, draft = false;
   let requestId = crypto.randomUUID(), lastIntent = 'result', payRequest = null, restoreCandidate = null;
   const today = () => FinCore.dateParts().date;

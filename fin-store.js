@@ -29,12 +29,17 @@
       });
     } finally { db.close(); }
   }
-  async function agenda() {
+  async function agenda({ withNames = false } = {}) {
     if (env.shared) {
-      const response = await fetch('./api/agenda', { signal: AbortSignal.timeout(20000) });
+      const response = await fetch('./api/agenda', { cache: 'no-store', signal: AbortSignal.timeout(20000) });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error);
-      return FinCore.project(result.state);
+      const snapshot = FinCore.project(result.state);
+      if (!withNames) return snapshot;
+      const clients = new Map(result.state.clients.map(client => [client.id, client.name]));
+      const names = new Map(result.state.appointments.map(item =>
+        [item.id, clients.get(item.clientId) || item.clientName || 'Cliente não identificado']));
+      return { ...snapshot, names };
     }
     let value;
     if (localStorage.getItem(env.fallbackMarker) === 'active') {

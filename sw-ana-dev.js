@@ -12,9 +12,9 @@ const FILES = [
   './manifest.webmanifest', './icon.svg',
   './ana-console.html', './ana-console.css', './ana-console.js?v=ana-dev-8',
   './ana-policy.js?v=ana-dev-13', './ana-local-store.js?v=ana-dev-8',
-  './fin-console.html', './fin-console.css', './fin-console.js?v=ana-dev-8',
+  './fin-console.html', './fin-console.css?v=ana-dev-23', './fin-console.js?v=ana-dev-23',
   './fin-core.js?v=ana-dev-8', './fin-ledger.js?v=ana-dev-8',
-  './fin-assistant.js?v=ana-dev-8', './fin-store.js?v=ana-dev-13'
+  './fin-assistant.js?v=ana-dev-8', './fin-store.js?v=ana-dev-23'
 ];
 const coreURLs = new Set(FILES.map(path => new URL(path, self.registration.scope).href));
 self.addEventListener('install', event => {

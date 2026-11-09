@@ -17,7 +17,7 @@
     draftPrefix: 'ana-dev-sync-draft-v1-',
     archivePrefix: 'ana-dev-sync-archive-v1-',
     cloudUrl: 'https://dpdxzbbzymkygutwefww.supabase.co',
-    cacheName: 'ana-dev-pwa-v22',
+    cacheName: 'ana-dev-pwa-v23',
     isAllowed(location = globalThis.location) {
       return location.origin === this.origin && location.pathname.startsWith(this.basePath);
     },
