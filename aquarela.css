@@ -32,7 +32,8 @@ html:has(.aquarela-page) { color-scheme: light; }
   position: relative;
   isolation: isolate;
   margin-bottom: 15px;
-  padding-right: 68px;
+  padding-inline: 0;
+  align-items: flex-end;
 }
 .aquarela-page .topbar::before {
   content: "";
@@ -56,10 +57,10 @@ html:has(.aquarela-page) { color-scheme: light; }
 }
 .aquarela-page .header-actions :is(a.text-button, #today-header, .local-badge) { display: none; }
 .aquarela-page .aqua-menu {
-  position: absolute;
+  position: relative;
   z-index: 20;
-  top: 25px;
-  right: clamp(12px, 3vw, 42px);
+  margin-inline-start: auto;
+  flex-shrink: 0;
 }
 .aqua-menu summary {
   list-style: none;
@@ -123,8 +124,15 @@ html:has(.aquarela-page) { color-scheme: light; }
   box-shadow: var(--shadow);
 }
 #quick-voice-status:empty { display: none; }
-.agenda-page.aquarela-page .fab { bottom: max(14px,env(safe-area-inset-bottom)); right: auto; left: 14px; }
-.aquarela-page .toolbar { border-radius: 13px 13px 0 0; padding: 10px; }
+.aquarela-page .toolbar {
+  display: flex;
+  border-radius: 13px 13px 0 0;
+  padding: 10px;
+  min-height: 0;
+}
+.aquarela-page .date-nav { flex-wrap: wrap; }
+.aquarela-page .period-label strong { color: var(--text); white-space: normal; }
+.aquarela-page .toolbar-today { display: inline-flex; align-items: center; margin: 0; }
 .aquarela-page .date-nav .icon-button { background: var(--surface); box-shadow: none; }
 .aquarela-page .date-nav .icon-button:hover { background: var(--surface3); }
 .aquarela-page .segmented { background: var(--surface2); }
@@ -230,5 +238,4 @@ html:has(.aquarela-page) { color-scheme: light; }
 }
 @media (min-width: 1000px) {
   body.aquarela-page:has(.agent-chat[open]) .app-shell { margin-inline-end: 420px; }
-  body.aquarela-page:has(.agent-chat[open]) .aqua-menu { right: 435px; }
 }

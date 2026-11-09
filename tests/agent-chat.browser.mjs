@@ -133,7 +133,7 @@ try {
   assert.equal(existing.modality, 'Online');
   await page.reload();
   await page.locator('#agent-chat-nav:enabled').waitFor({ state: 'attached' });
-  await page.locator('[data-view="month"]').click();
+  await page.locator('#next-date').click();
   await page.locator(`#calendar [data-event-id="${newClient.id}"]`).waitFor();
   assert.deepEqual(await records(), after);
   assert.deepEqual(errors, []);

@@ -9,7 +9,6 @@
   const HOURS_START = 8;
   const HOURS_END = 20;
   const weekdays = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'];
-  const months = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
   const $ = selector => document.querySelector(selector);
   const $$ = selector => [...document.querySelectorAll(selector)];
   const emptyState = { clients: [], appointments: [], settings: { view: 'week' } };
@@ -313,7 +312,7 @@
     const enteringSummary = tab === 'summary' && activeTab !== 'summary';
     activeTab = tab;
     const pageTitle = $('#page-title');
-    if (pageTitle) pageTitle.textContent = { agenda: 'Programação da semana', clients: 'Clientes', summary: 'Financeiro' }[tab];
+    if (pageTitle) pageTitle.textContent = { agenda: 'Agenda', clients: 'Clientes', summary: 'Financeiro' }[tab];
     const menu = $('#agenda-menu');
     if (menu) menu.open = false;
     $$('.screen').forEach(screen => screen.classList.toggle('active', screen.id === `${tab}-screen`));
@@ -323,20 +322,12 @@
       if (selected) button.setAttribute('aria-current', 'page');
       else button.removeAttribute('aria-current');
     });
-    $('#fab').classList.toggle('hidden', tab !== 'agenda');
     $('#today-header').classList.toggle('hidden', tab !== 'agenda');
     if (tab === 'clients') renderClients();
     if (tab === 'summary') {
       if (enteringSummary) { summaryVisibleCount = 10; summaryReturnPosition = null; summaryMode = 'due'; summaryUndated = false; }
       renderSummary();
     }
-  }
-
-  function setView(view) {
-    state.settings.view = view;
-    $$('.segmented button[data-view]').forEach(button => button.classList.toggle('active', button.dataset.view === view));
-    if (!environment.shared) saveState();
-    renderCalendar();
   }
 
   function relevantEvents(date) {
@@ -387,7 +378,7 @@
       const date = addDays(monday, index);
       const today = isoDate(date) === isoDate(new Date());
       html += `<div class="day-column ${today ? 'today' : ''}" data-date="${isoDate(date)}">
-        <button class="day-head week-day-button" type="button" data-open-day="${isoDate(date)}" aria-label="Abrir ${escapeHTML(date.toLocaleDateString('pt-BR'))} na visão Dia"><span>${weekdays[date.getDay()]}</span><b>${date.getDate()}</b></button>
+        <button class="day-head week-day-button" type="button" data-new-day="${isoDate(date)}" aria-label="Novo atendimento em ${escapeHTML(date.toLocaleDateString('pt-BR'))}"><span>${weekdays[date.getDay()]}</span><b>${date.getDate()}</b></button>
         <div class="day-hit-area" data-date="${isoDate(date)}"></div>${relevantEvents(date).map(eventCard).join('')}</div>`;
     }
     $('#calendar').innerHTML = `${html}<div class="aqua-now" hidden><time></time></div></div>`;
@@ -418,55 +409,16 @@
     });
   }
 
-  function renderDay() {
-    const today = isoDate(anchorDate) === isoDate(new Date());
-    $('#calendar').innerHTML = `<div class="day-view">${timeAxis()}<div class="day-lane ${today ? 'today' : ''}">
-      <div class="day-head"><b>${anchorDate.toLocaleDateString('pt-BR', {weekday:'long', day:'2-digit', month:'long'})}</b></div>
-      <div class="day-hit-area" data-date="${isoDate(anchorDate)}"></div>${relevantEvents(anchorDate).map(eventCard).join('')}</div></div>`;
-  }
-
-  function renderMonth() {
-    const first = new Date(anchorDate.getFullYear(), anchorDate.getMonth(), 1);
-    const gridStart = startOfWeek(first);
-    const headings = ['SEG','TER','QUA','QUI','SEX','SÁB','DOM'].map(day => `<div class="month-weekday">${day}</div>`).join('');
-    let cells = '';
-    for (let index = 0; index < 42; index += 1) {
-      const date = addDays(gridStart, index);
-      const events = relevantEvents(date);
-      const classes = `${date.getMonth() !== anchorDate.getMonth() ? 'outside' : ''} ${isoDate(date) === isoDate(new Date()) ? 'today' : ''}`;
-      cells += `<div class="month-day ${classes}" data-date="${isoDate(date)}"><span class="month-number">${date.getDate()}</span><div class="month-events">
-        ${events.slice(0,3).map(item => `<button class="month-event event-${eventColor(item)} ${item.financialStatus === 'Pago' ? 'paid' : ''}" data-event-id="${item.id}" type="button">${escapeHTML(item.start)} · ${escapeHTML(appointmentDisplayName(item))}</button>`).join('')}
-        ${events.length > 3 ? `<span class="month-more">+ ${events.length - 3} outro(s)</span>` : ''}</div></div>`;
-    }
-    $('#calendar').innerHTML = `<div class="month-view">${headings}${cells}</div>`;
-  }
-
-  function updatePeriodLabel() {
-    const view = state.settings.view;
-    if (view === 'week') {
-      const first = startOfWeek(anchorDate), last = addDays(first, 6);
-      $('#period-primary').textContent = first.getMonth() === last.getMonth() ? months[first.getMonth()] : `${months[first.getMonth()]} — ${months[last.getMonth()]}`;
-      $('#period-secondary').textContent = `${first.getDate()}–${last.getDate()} · ${last.getFullYear()}`;
-    } else if (view === 'month') {
-      $('#period-primary').textContent = months[anchorDate.getMonth()];
-      $('#period-secondary').textContent = anchorDate.getFullYear();
-    } else {
-      $('#period-primary').textContent = anchorDate.toLocaleDateString('pt-BR', {day:'2-digit', month:'long'});
-      $('#period-secondary').textContent = anchorDate.getFullYear();
-    }
-  }
-
   function renderCalendar() {
-    updatePeriodLabel();
-    if (state.settings.view === 'day') renderDay();
-    else if (state.settings.view === 'month') renderMonth();
-    else renderWeek();
+    const first = startOfWeek(anchorDate);
+    const last = addDays(first, 6);
+    const date = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    $('#period-primary').textContent = `${date.format(first)} – ${date.format(last)}`;
+    renderWeek();
   }
 
   function navigateDate(direction) {
-    if (state.settings.view === 'day') anchorDate = addDays(anchorDate, direction);
-    else if (state.settings.view === 'week') anchorDate = addDays(anchorDate, direction * 7);
-    else anchorDate = addMonths(anchorDate, direction);
+    anchorDate = addDays(anchorDate, direction * 7);
     renderCalendar();
   }
 
@@ -1207,7 +1159,7 @@
     const item = state.appointments.find(entry => entry.id === id);
     if (!item) return;
     anchorDate = parseDate(item.date);
-    setView('day');
+    renderCalendar();
     setTab('agenda');
     openEditAppointment(id);
   }
@@ -1271,26 +1223,19 @@
 
   function bindEvents() {
     $$('.bottom-nav button[data-tab]').forEach(button => button.addEventListener('click', () => setTab(button.dataset.tab)));
-    $$('.segmented button[data-view]').forEach(button => button.addEventListener('click', () => setView(button.dataset.view)));
     $('#prev-date').addEventListener('click', () => navigateDate(-1));
     $('#next-date').addEventListener('click', () => navigateDate(1));
     $('#today-header').addEventListener('click', () => { anchorDate = new Date(); renderCalendar(); });
     $('#today-toolbar').addEventListener('click', () => { anchorDate = new Date(); renderCalendar(); });
-    $('#fab').addEventListener('click', () => openNewAppointment(isoDate(anchorDate), '09:00'));
     $('#calendar').addEventListener('click', event => {
       if (Date.now() < suppressCalendarClickUntil) { event.preventDefault(); return; }
-      const dayButton = event.target.closest('[data-open-day]');
+      const dayButton = event.target.closest('[data-new-day]');
       if (dayButton) {
-        const scrollTop = $('#calendar').scrollTop;
-        anchorDate = parseDate(dayButton.dataset.openDay);
-        setView('day');
-        $('#calendar').scrollTop = scrollTop;
+        openNewAppointment(dayButton.dataset.newDay, '09:00');
         return;
       }
       const eventButton = event.target.closest('[data-event-id]');
       if (eventButton) { event.stopPropagation(); openEditAppointment(eventButton.dataset.eventId); return; }
-      const monthDay = event.target.closest('.month-day[data-date]');
-      if (monthDay) { openNewAppointment(monthDay.dataset.date, '09:00'); return; }
       const hitArea = event.target.closest('.day-hit-area[data-date]');
       if (hitArea) {
         const rect = hitArea.getBoundingClientRect();
@@ -1378,7 +1323,7 @@
       event.preventDefault();
       handleAppointmentDateTap(dateButton.dataset.appointmentDateId);
     });
-    window.addEventListener('resize', () => { if (state.settings.view === 'week') positionMobileWeek(); });
+    window.addEventListener('resize', positionMobileWeek);
     $$('[data-close]').forEach(button => button.addEventListener('click', () => document.getElementById(button.dataset.close).close()));
     window.addEventListener('beforeinstallprompt', event => { event.preventDefault(); deferredInstall = event; $('#install-button').classList.remove('hidden'); });
     $('#install-button').addEventListener('click', async () => { if (!deferredInstall) return; deferredInstall.prompt(); await deferredInstall.userChoice; deferredInstall = null; $('#install-button').classList.add('hidden'); });
@@ -1391,7 +1336,7 @@
     populateTimeOptions();
     bindEvents();
     bindCalendarSwipe();
-    setView('week');
+    renderCalendar();
     setTab('agenda');
     window.setInterval(refreshSummaryStatus, 60000);
     window.setInterval(refreshWeekClock, 30000);
@@ -1487,7 +1432,6 @@
       replaceState: next => {
         state = structuredClone(next);
         paymentSelection.clear(); summaryClient = null;
-        $$('.segmented button').forEach(button => button.classList.toggle('active', button.dataset.view === state.settings.view));
         renderCalendar(); setTab(activeTab); renderClients();
       },
       downloadBackup: exportLocalBackup

@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="styles.css?v=ana-dev-8">
   <link rel="stylesheet" href="agent-chat.css?v=ana-dev-17">
   <link rel="stylesheet" href="graphite.css?v=ana-dev-16">
-  <link rel="stylesheet" href="aquarela.css?v=ana-dev-20">
+  <link rel="stylesheet" href="aquarela.css?v=ana-dev-21">
   <title>Ana DEV — Agenda de testes</title>
 </head>
 <body class="agenda-page aquarela-page">
@@ -74,7 +74,7 @@
   </svg>
   <div id="app" class="app-shell">
     <header class="topbar">
-      <div class="brand"><div><span class="eyebrow">Agenda · Aquarela Brasileira</span><h1 id="page-title">Programação da semana</h1></div></div>
+      <div class="brand"><div><span class="eyebrow">Agenda · Aquarela Brasileira</span><h1 id="page-title">Agenda</h1></div></div>
       <div class="header-actions">
         <a class="text-button" href="ana-console.html">Atendimento Ana</a>
         <a class="text-button" href="fin-console.html">Financeiro Fin</a>
@@ -82,6 +82,18 @@
         <button id="today-header" class="text-button" type="button">Hoje</button>
         <span class="local-badge"><i></i> TESTE · Somente dados fictícios</span>
       </div>
+    <details id="agenda-menu" class="aqua-menu"><summary>Menu</summary>
+    <nav class="bottom-nav" aria-label="Navegação principal">
+      <button data-tab="agenda" class="active" type="button"><span class="nav-icon"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><use href="#lucide-calendar-days"/></svg></span><span>Agenda</span></button>
+      <button data-tab="clients" type="button"><span class="nav-icon"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><use href="#lucide-users"/></svg></span><span>Clientes</span></button>
+      <button data-tab="summary" type="button"><span class="nav-icon"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><use href="#lucide-wallet"/></svg></span><span>Financeiro</span></button>
+      <button id="agent-chat-nav" type="button" aria-haspopup="dialog" aria-label="Abrir chat dos agentes" disabled><span class="nav-icon"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><use href="#lucide-message-circle"/></svg></span><span>Chat</span></button>
+      <div class="nav-consoles">
+        <a href="ana-console.html">Atendimento Ana</a>
+        <a href="fin-console.html">Financeiro Fin</a>
+      </div>
+    </nav>
+    </details>
     </header>
 
     <aside id="update-notice" class="update-notice hidden" role="status"><span id="update-message">Atualização disponível</span><button id="apply-update" class="secondary-button" type="button">Atualizar</button></aside>
@@ -90,15 +102,10 @@
       <section id="agenda-screen" class="screen active" aria-label="Agenda">
         <div class="toolbar surface">
           <div class="date-nav">
-            <button id="prev-date" class="icon-button" type="button" aria-label="Período anterior"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><use href="#lucide-chevron-left"/></svg></button>
-            <button id="next-date" class="icon-button" type="button" aria-label="Próximo período"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><use href="#lucide-chevron-right"/></svg></button>
-            <div class="period-label"><strong id="period-primary"></strong><span id="period-secondary"></span></div>
+            <button id="prev-date" class="icon-button" type="button" aria-label="Semana anterior"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><use href="#lucide-chevron-left"/></svg></button>
+            <button id="next-date" class="icon-button" type="button" aria-label="Próxima semana"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><use href="#lucide-chevron-right"/></svg></button>
+            <div class="period-label"><strong id="period-primary"></strong></div>
             <button id="today-toolbar" class="toolbar-today" type="button">Hoje</button>
-          </div>
-          <div class="segmented" role="group" aria-label="Visualização da agenda">
-            <button data-view="day" type="button">Dia</button>
-            <button data-view="week" type="button" class="active">Semana</button>
-            <button data-view="month" type="button">Mês</button>
           </div>
         </div>
         <div id="calendar" class="calendar surface" aria-live="polite" tabindex="0"></div>
@@ -128,21 +135,8 @@
       </section>
     </main>
 
-    <button id="fab" aria-label="Novo atendimento" class="fab" type="button"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><use href="#lucide-plus"/></svg><b>Novo atendimento</b></button>
     <p id="quick-voice-status" role="status"></p>
     <button id="agent-chat-open" class="primary-button aqua-speak" type="button" aria-pressed="false" aria-describedby="quick-voice-status" disabled><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M2 10v3M6 6v11M10 3v18M14 8v7M18 5v13M22 10v3"/></svg><span>Falar</span></button>
-    <details id="agenda-menu" class="aqua-menu"><summary>Menu</summary>
-    <nav class="bottom-nav" aria-label="Navegação principal">
-      <button data-tab="agenda" class="active" type="button"><span class="nav-icon"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><use href="#lucide-calendar-days"/></svg></span><span>Agenda</span></button>
-      <button data-tab="clients" type="button"><span class="nav-icon"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><use href="#lucide-users"/></svg></span><span>Clientes</span></button>
-      <button data-tab="summary" type="button"><span class="nav-icon"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><use href="#lucide-wallet"/></svg></span><span>Financeiro</span></button>
-      <button id="agent-chat-nav" type="button" aria-haspopup="dialog" aria-label="Abrir chat dos agentes" disabled><span class="nav-icon"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><use href="#lucide-message-circle"/></svg></span><span>Chat</span></button>
-      <div class="nav-consoles">
-        <a href="ana-console.html">Atendimento Ana</a>
-        <a href="fin-console.html">Financeiro Fin</a>
-      </div>
-    </nav>
-    </details>
   </div>
 
   <dialog id="agent-chat" class="modal agent-chat" aria-labelledby="agent-chat-title">
@@ -271,6 +265,6 @@
   <script src="fin-core.js?v=ana-dev-8" defer></script>
   <script src="agent-voice.js?v=ana-dev-20" defer></script>
   <script src="agent-chat.js?v=ana-dev-20" defer></script>
-  <script src="app.js?v=ana-dev-19" defer></script>
+  <script src="app.js?v=ana-dev-21" defer></script>
 </body>
 </html>
