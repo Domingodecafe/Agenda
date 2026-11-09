@@ -2,7 +2,7 @@
   'use strict';
 
   // Fluxo WebRTC adaptado de audioOnlyWebRtc.ts (revisão e licença no LEIA-ME.md).
-  function install({ controls, startButton, muteButton, interruptButton, playbackButton, status, audio, holdButton, onEvent, onState }) {
+  function install({ controls, startButton, muteButton, interruptButton, playbackButton, status, audio, holdButton, onEvent, onState, onStatus }) {
     let active;
     let closing = Promise.resolve();
 
@@ -22,6 +22,10 @@
         holdButton.setAttribute('aria-pressed', String(Boolean(active?.capture && !active.capture.ending)));
       }
       status.textContent = message;
+      onStatus?.({
+        active: Boolean(active), ready: Boolean(active?.ready), muted: Boolean(active?.muted),
+        playbackBlocked: Boolean(active?.playbackBlocked), mode: active?.mode, message,
+      });
     }
 
     function stop(message = '', drain = true) {

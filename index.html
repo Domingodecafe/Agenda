@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="styles.css?v=ana-dev-8">
   <link rel="stylesheet" href="agent-chat.css?v=ana-dev-17">
   <link rel="stylesheet" href="graphite.css?v=ana-dev-16">
-  <link rel="stylesheet" href="aquarela.css?v=ana-dev-18">
+  <link rel="stylesheet" href="aquarela.css?v=ana-dev-20">
   <title>Ana DEV — Agenda de testes</title>
 </head>
 <body class="agenda-page aquarela-page">
@@ -129,7 +129,8 @@
     </main>
 
     <button id="fab" aria-label="Novo atendimento" class="fab" type="button"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><use href="#lucide-plus"/></svg><b>Novo atendimento</b></button>
-    <button id="agent-chat-open" class="primary-button aqua-speak" type="button" aria-haspopup="dialog" disabled><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M2 10v3M6 6v11M10 3v18M14 8v7M18 5v13M22 10v3"/></svg><span>Falar</span></button>
+    <p id="quick-voice-status" role="status"></p>
+    <button id="agent-chat-open" class="primary-button aqua-speak" type="button" aria-pressed="false" aria-describedby="quick-voice-status" disabled><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M2 10v3M6 6v11M10 3v18M14 8v7M18 5v13M22 10v3"/></svg><span>Falar</span></button>
     <details id="agenda-menu" class="aqua-menu"><summary>Menu</summary>
     <nav class="bottom-nav" aria-label="Navegação principal">
       <button data-tab="agenda" class="active" type="button"><span class="nav-icon"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><use href="#lucide-calendar-days"/></svg></span><span>Agenda</span></button>
@@ -268,8 +269,8 @@
   <script src="cloud-sync.js?v=ana-dev-8" defer></script>
   <script src="ana-policy.js?v=ana-dev-13" defer></script>
   <script src="fin-core.js?v=ana-dev-8" defer></script>
-  <script src="agent-voice.js?v=ana-dev-17" defer></script>
-  <script src="agent-chat.js?v=ana-dev-18" defer></script>
+  <script src="agent-voice.js?v=ana-dev-20" defer></script>
+  <script src="agent-chat.js?v=ana-dev-20" defer></script>
   <script src="app.js?v=ana-dev-19" defer></script>
 </body>
 </html>

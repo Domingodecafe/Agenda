@@ -60,7 +60,8 @@ try {
     return route.fulfill({ json: { reply: data.id === 'ana' ? 'Horários consultados.' : 'Recebimentos consultados.' } });
   });
   await page.goto(app);
-  await page.getByRole('button', { name: 'Chat', exact: true }).click();
+  await page.locator('#agenda-menu summary').click();
+  await page.getByRole('button', { name: 'Abrir chat dos agentes', exact: true }).click();
   assert.ok(await page.getByRole('dialog').isVisible());
   const records = () => page.evaluate(async fallback => {
     const envelope = fallback ? JSON.parse(localStorage.getItem('ana-dev-agenda-state-v1')) : await new Promise((resolve, reject) => {
@@ -131,7 +132,7 @@ try {
   assert.equal(existing.clientId, 'lia');
   assert.equal(existing.modality, 'Online');
   await page.reload();
-  await page.locator('#agent-chat-open:enabled').waitFor();
+  await page.locator('#agent-chat-nav:enabled').waitFor({ state: 'attached' });
   await page.locator('[data-view="month"]').click();
   await page.locator(`#calendar [data-event-id="${newClient.id}"]`).waitFor();
   assert.deepEqual(await records(), after);

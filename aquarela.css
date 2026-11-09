@@ -101,6 +101,28 @@ html:has(.aquarela-page) { color-scheme: light; }
   min-height: 48px;
   box-shadow: var(--shadow);
 }
+.aquarela-page .aqua-speak[data-voice-state="listening"] {
+  outline: 2px solid #4a8c72;
+  outline-offset: 3px;
+}
+.aquarela-page .aqua-speak[data-voice-state="muted"] {
+  background: var(--surface2);
+  color: var(--text);
+}
+#quick-voice-status {
+  position: fixed;
+  z-index: 16;
+  inset: auto max(14px,env(safe-area-inset-right)) calc(70px + env(safe-area-inset-bottom)) auto;
+  max-width: min(310px,calc(100vw - 28px));
+  margin: 0;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow);
+}
+#quick-voice-status:empty { display: none; }
 .agenda-page.aquarela-page .fab { bottom: max(14px,env(safe-area-inset-bottom)); right: auto; left: 14px; }
 .aquarela-page .toolbar { border-radius: 13px 13px 0 0; padding: 10px; }
 .aquarela-page .date-nav .icon-button { background: var(--surface); box-shadow: none; }

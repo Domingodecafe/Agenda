@@ -125,13 +125,28 @@
       if (localStorage.getItem('ana-dev-last-agent') === 'fin') selected = 'fin';
     } catch { /* Storage may be unavailable in private browsing. */ }
     const voiceStart = byId('agent-voice-start');
+    const quickVoiceLabel = open.querySelector('span');
+    const quickVoiceStatus = byId('quick-voice-status');
+    const playbackButton = byId('agent-voice-play');
+    let quickVoicePlaybackBlocked = false;
+
+    function showQuickVoiceState({ active, ready, muted, playbackBlocked, mode, message }) {
+      const name = selected === 'ana' ? 'Ana' : 'Fin';
+      quickVoicePlaybackBlocked = playbackBlocked;
+      open.setAttribute('aria-pressed', String(active));
+      open.dataset.voiceState = !active ? 'idle' : !ready ? 'connecting' : muted ? 'muted' : 'listening';
+      if (quickVoiceLabel) quickVoiceLabel.textContent = playbackBlocked ? 'Ativar áudio' :
+        !active ? 'Falar' : !ready ? 'Conectando…' : muted ? name + ' · Silenciado' :
+        mode === 'hold' ? name + ' · Segure no chat' : name + ' · Ouvindo';
+      if (quickVoiceStatus) quickVoiceStatus.textContent = !active || playbackBlocked ? message : '';
+    }
     const voiceMode = byId('agent-voice-mode');
     const reconnect = byId('agent-voice-reconnect');
     const continueText = byId('agent-voice-text');
     const voice = globalThis.AgendaHostedConfig?.voice && voiceStart ? globalThis.AgentVoice?.install({
       controls: byId('agent-voice-controls'), startButton: voiceStart, muteButton: byId('agent-voice-mute'),
-      interruptButton: byId('agent-voice-interrupt'), playbackButton: byId('agent-voice-play'),
-      status: byId('agent-voice-status'), audio: byId('agent-voice-audio'), holdButton: byId('agent-voice-hold'), onEvent: handleVoiceEvent, onState: render,
+      interruptButton: byId('agent-voice-interrupt'), playbackButton,
+      status: byId('agent-voice-status'), audio: byId('agent-voice-audio'), holdButton: byId('agent-voice-hold'), onEvent: handleVoiceEvent, onState: render, onStatus: showQuickVoiceState,
     }) : undefined;
 
     function context(thread) {
@@ -241,8 +256,6 @@
       const name = selected === 'ana' ? 'Ana' : 'Fin';
       const title = byId('agent-chat-title');
       if (title) title.textContent = 'Conversa com ' + name;
-      const speakLabel = open.querySelector('span');
-      if (speakLabel) speakLabel.textContent = voice?.active ? name + ' · Voz ativa' : 'Falar';
       log.setAttribute('aria-label', 'Conversa com ' + name);
       log.replaceChildren(...thread.messages.map(message => {
         const { role, content, details, appointment, confirmation, review } = message;
@@ -327,6 +340,7 @@
         reconnect.disabled = continueText.disabled = busy(thread);
       }
       if (voiceStart && voice) voiceStart.disabled = busy(thread) && !voice.active;
+      open.disabled = !voice || (busy(thread) && !voice.active);
       examples.hidden = thread.messages.length > 0 || thread.busy;
       input.placeholder = selected === 'ana' ? 'Quais horários estão livres amanhã?' : 'Quanto recebi este mês?';
       status.textContent = thread.status;
@@ -361,7 +375,18 @@
       fitViewport();
     }
     open.addEventListener('click', () => {
-      showChat();
+      if (!voice) return;
+      if (quickVoicePlaybackBlocked) {
+        playbackButton.click();
+        return;
+      }
+      if (voice.active) {
+        void voice.stop('Voz encerrada.');
+        return;
+      }
+      if (busy(conversations[selected])) return;
+      chosenMode = 'continuous';
+      if (voiceMode) voiceMode.value = chosenMode;
       startVoice();
     });
     openNav.addEventListener('click', () => {
@@ -369,7 +394,7 @@
       if (menu) menu.open = false;
       showChat();
     });
-    open.disabled = false;
+    open.disabled = !voice;
     openNav.disabled = false;
     example.addEventListener('click', () => {
       conversations[selected].draft = example.textContent;
