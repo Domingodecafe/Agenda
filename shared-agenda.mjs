@@ -1,10 +1,11 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import './ana-policy.js';
 import './fin-core.js';
 import './agent-chat.js';
 import { createFixture } from './hosted-fixture.mjs';
 import { prepareSeries, prepareChange } from './ana-agenda-actions.mjs';
 import { prepareBulkRemoval } from './ana-bulk-removal.mjs';
+import { readBody } from './agent-chat-server.mjs';
 
 export class AgendaConflict extends Error {}
 
@@ -62,7 +63,37 @@ const isSnapshot = state => state && Array.isArray(state.clients) && Array.isArr
     FinCore.validDate(item.date) && slot(item.start) && slot(item.end) && item.start < item.end);
 
 export function createSharedAgenda(store, { now = () => new Date() } = {}) {
-  const confirmations = new Map();
+  const queue = state => state.anaQueue || [];
+  const statusAt = (item, time) => item.status === 'pending' && item.expiresAt <= time ? 'expired' : item.status;
+  const selectRemoval = (state, selection) => selection.filters
+    ? prepareBulkRemoval(state, selection.filters, selection.within && new Set(selection.within))
+    : prepareChange(state, selection.request, now());
+  const canonical = value => JSON.stringify(value, (_, item) => item && typeof item === 'object' && !Array.isArray(item)
+    ? Object.fromEntries(Object.keys(item).sort().map(key => [key, item[key]]))
+    : item);
+  function fingerprint(state, ids) {
+    const wanted = new Set(ids);
+    const names = new Map(state.clients.map(client => [client.id, client.name]));
+    const items = state.appointments.filter(item => wanted.has(item.id)).sort((a, b) => a.id.localeCompare(b.id));
+    return createHash('sha256').update(canonical(items.map(item => [item, names.get(item.clientId)]))).digest('hex');
+  }
+  function approval(state, selection, source, removal, review, time) {
+    const names = new Map(state.clients.map(client => [client.id, client.name]));
+    const ids = new Set(removal);
+    const items = state.appointments.filter(item => ids.has(item.id));
+    return {
+      id: randomUUID(), kind: 'approval', title: 'Excluir atendimentos', status: 'pending', source,
+      createdAt: time, expiresAt: time + 24 * 60 * 60 * 1000, selection, fingerprint: fingerprint(state, removal),
+      review: review || {
+        scope: 'Exclusão de atendimentos',
+        paid: items.filter(item => item.financialStatus === 'Pago' || item.payment).length,
+        items: items.map(item => `${item.date.split('-').reverse().join('/')} às ${item.start} · ${names.get(item.clientId) || item.clientName || 'Atendimento'}`),
+      },
+    };
+  }
+  function stillMatches(state, item, removal) {
+    return removal?.length === item.review.items.length && fingerprint(state, removal) === item.fingerprint;
+  }
   async function read(revision) {
     if (revision && (await store.read(false))?.revision === revision) return null;
     let snapshot = await store.read();
@@ -83,25 +114,21 @@ export function createSharedAgenda(store, { now = () => new Date() } = {}) {
     if (!Number.isSafeInteger(revision) || revision < 1 || !isSnapshot(state)) throw new TypeError('Alteração inválida.');
     const current = await read();
     if (current.revision !== revision) throw new AgendaConflict();
-    state.settings.sharedFixture = marker;
+    state = { ...state, settings: { ...state.settings, sharedFixture: marker } };
+    delete state.anaQueue;
+    if (current.state.anaQueue) state.anaQueue = current.state.anaQueue;
     return { revision: await store.write(revision, state), state };
   }
 
-  async function modify(prepare, filters) {
+  async function modify(prepare, selection, source = 'text') {
     for (let attempt = 0; attempt < 3; attempt++) {
       const { state, revision } = await read();
-      const { state: next, removal, ...result } = prepare(state, revision);
-      if (removal) {
-        for (const [id, plan] of confirmations) if (plan.expires <= Date.now()) confirmations.delete(id);
-        if (confirmations.size >= 32) confirmations.delete(confirmations.keys().next().value);
-        const token = randomUUID();
-        confirmations.set(token, { revision, ids: new Set(removal), filters, expires: Date.now() + 300000 });
-        return { ...result, confirmation: token };
-      }
-      if (!next) return result;
+      const { state: next, removal, ...result } = prepare(state);
+      const item = removal && approval(state, selection, source, removal, result.review, now().getTime());
+      if (!next && !item) return result;
       try {
-        await store.write(revision, next);
-        return { ...result, changed: true };
+        await store.write(revision, next || { ...state, anaQueue: [item, ...queue(state)] });
+        return item ? { ...result, review: item.review, confirmation: item.id } : result;
       } catch (error) {
         if (!(error instanceof AgendaConflict)) throw error;
       }
@@ -109,56 +136,102 @@ export function createSharedAgenda(store, { now = () => new Date() } = {}) {
     throw new AgendaConflict();
   }
 
+  async function decide(id, action) {
+    return modify(state => {
+      const item = queue(state).find(entry => entry.id === id);
+      const time = now().getTime();
+      const status = item && statusAt(item, time);
+      if (!item || status === 'expired' || status === 'superseded') {
+        return { reply: 'A confirmação expirou. Peça a exclusão novamente para revisar.' };
+      }
+      if (status !== 'pending') return { reply: 'Este pedido já foi processado.' };
+      if ((item.kind === 'notice') !== (action === 'resolve')) return { reply: 'Ação indisponível para este pedido.' };
+      let appointments = state.appointments;
+      let nextStatus = action === 'approve' ? 'approved' : action === 'reject' ? 'rejected' : 'resolved';
+      let reply = action === 'reject' ? 'Pedido recusado.' : 'Aviso resolvido.';
+      if (action === 'approve') {
+        const { removal } = selectRemoval(state, item.selection);
+        if (stillMatches(state, item, removal)) {
+          const ids = new Set(removal);
+          appointments = appointments.filter(entry => !ids.has(entry.id));
+          reply = `${ids.size} ${ids.size === 1 ? 'atendimento apagado' : 'atendimentos apagados'} da Agenda.`;
+        } else {
+          nextStatus = 'stale';
+          reply = 'A Agenda mudou desde a revisão. Peça a exclusão novamente para conferir os registros.';
+        }
+      }
+      return {
+        state: { ...state, appointments, anaQueue: queue(state).map(entry =>
+          entry.id === id ? { ...entry, status: nextStatus, decidedAt: time } : entry) },
+        changed: nextStatus === 'approved',
+        reply,
+      };
+    });
+  }
+
   return {
-    read, write,
+    read, write, decide,
+    async listQueue() {
+      const time = now().getTime();
+      return queue((await read()).state).map(({ selection, fingerprint, ...item }) =>
+        ({ ...item, status: statusAt(item, time) }));
+    },
     async consult(agent, period, filters) {
       return AgentChat.consult(agent, period, (await read()).state, now(), filters);
     },
-    book: request => modify(state => prepareSeries(state, request, now())),
-    change: request => modify(state => prepareChange(state, request, now())),
-    bulkRemoval: filters => modify(state => prepareBulkRemoval(state, filters), filters),
-    async continueRemoval(token, recurringOnly) {
-      const plan = confirmations.get(token);
-      if (!plan || plan.expires <= Date.now()) {
-        confirmations.delete(token);
-        return { reply: 'A revisão expirou. Peça a exclusão novamente.', discardConfirmation: true };
-      }
-      if ((await read()).revision !== plan.revision) {
-        confirmations.delete(token);
-        return { reply: 'A Agenda mudou desde a revisão. Peça a exclusão novamente.', discardConfirmation: true };
-      }
-      if (!recurringOnly || !plan.filters) return { reply: 'Toque em Confirmar exclusão no cartão acima.', showConfirmation: true };
-      confirmations.delete(token);
-      const filters = { ...plan.filters, recurrence: 'series' };
-      const result = await modify((state, revision) => revision === plan.revision ?
-        prepareBulkRemoval(state, filters, plan.ids) : { reply: 'A Agenda mudou. Peça a exclusão novamente.' }, filters);
-      return { ...result, discardConfirmation: true };
+    book: request => modify(state => {
+      const result = prepareSeries(state, request, now());
+      return result.state ? { ...result, changed: true } : result;
+    }),
+    change: (request, source) => modify(state => {
+      const result = prepareChange(state, request, now());
+      return result.state ? { ...result, changed: true } : result;
+    }, { request }, source),
+    bulkRemoval: (filters, source) => modify(state => prepareBulkRemoval(state, filters), { filters }, source),
+    addNotice: (title, summary, source) => modify(state => ({
+      state: { ...state, anaQueue: [{
+        id: randomUUID(), kind: 'notice', status: 'pending', title, summary, source, createdAt: now().getTime(),
+      }, ...queue(state)] },
+      reply: 'Registrei o aviso na Central da Ana.',
+    })),
+    async continueRemoval(token, recurringOnly, source = 'text') {
+      return modify(state => {
+        const item = queue(state).find(entry => entry.id === token && entry.kind === 'approval');
+        const time = now().getTime();
+        if (!item || statusAt(item, time) !== 'pending') {
+          return { reply: 'A revisão expirou. Peça a exclusão novamente.', discardConfirmation: true };
+        }
+        const { removal } = selectRemoval(state, item.selection);
+        if (!stillMatches(state, item, removal)) {
+          return { reply: 'A Agenda mudou desde a revisão. Peça a exclusão novamente.', discardConfirmation: true };
+        }
+        if (!recurringOnly || !item.selection.filters) {
+          return { reply: 'Toque em Confirmar exclusão no cartão ou na Central da Ana.', showConfirmation: true };
+        }
+        const selection = { filters: { ...item.selection.filters, recurrence: 'series' }, within: removal };
+        const result = selectRemoval(state, selection);
+        if (!result.removal) return { reply: result.reply, showConfirmation: true };
+        const next = approval(state, selection, source, result.removal, result.review, time);
+        return {
+          state: { ...state, anaQueue: [next, ...queue(state).map(entry => entry.id === token
+            ? { ...entry, status: 'superseded', decidedAt: time } : entry)] },
+          reply: result.reply, review: next.review, confirmation: next.id, discardConfirmation: true,
+        };
+      });
     },
-    async confirmRemoval(token) {
-      const plan = confirmations.get(token);
-      confirmations.delete(token);
-      if (!plan || plan.expires <= Date.now()) return { reply: 'A confirmação expirou. Peça a exclusão novamente para revisar.' };
-      try {
-        const { revision, state } = await read();
-        if (revision !== plan.revision) throw new AgendaConflict();
-        await store.write(revision, { ...state, appointments: state.appointments.filter(item => !plan.ids.has(item.id)) });
-      } catch (error) {
-        if (!(error instanceof AgendaConflict)) throw error;
-        return { reply: 'A Agenda mudou desde a revisão. Peça a exclusão novamente para conferir os registros.' };
-      }
-      return { changed: true, reply: `${plan.ids.size} ${plan.ids.size === 1 ? 'atendimento apagado' : 'atendimentos apagados'} da Agenda.` };
-    },
+    confirmRemoval: token => decide(token, 'approve'),
   };
 }
 
 export function sharedAgendaHandler(agenda, origin) {
+  const publicResult = ({ revision, state: { anaQueue, ...state } }) => ({ revision, state });
   return async (req, res, url) => {
     const send = (status, payload) => res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' }).end(JSON.stringify(payload));
     try {
       if (req.method === 'GET') {
         const revision = Number(url.searchParams.get('revision'));
         const result = await agenda.read(revision);
-        return result ? send(200, result) : res.writeHead(304).end();
+        return result ? send(200, publicResult(result)) : res.writeHead(304).end();
       }
       if (req.method !== 'PUT') return send(405, { error: 'Método inválido.' });
       if (req.headers.origin !== origin || !/^application\/json(?:\s*;|$)/i.test(req.headers['content-type'] || '')) {
@@ -174,11 +247,35 @@ export function sharedAgendaHandler(agenda, origin) {
       let data;
       try { data = JSON.parse(Buffer.concat(chunks).toString('utf8')); }
       catch { return send(400, { error: 'Alteração inválida.' }); }
-      return send(200, await agenda.write(data?.revision, data?.state));
+      return send(200, publicResult(await agenda.write(data?.revision, data?.state)));
     } catch (error) {
       if (error instanceof AgendaConflict) return send(409, { error: 'A Agenda mudou em outro aparelho. Confira os dados atualizados e tente novamente.' });
       if (error instanceof TypeError && error.message === 'Alteração inválida.') return send(400, { error: error.message });
       return send(503, { error: 'Não foi possível conectar à agenda compartilhada. Tente novamente.' });
+    }
+  };
+}
+
+export function anaQueueHandler(agenda, origin) {
+  return async (req, res) => {
+    const send = (status, payload) => res.writeHead(status, {
+      'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store',
+    }).end(JSON.stringify(payload));
+    try {
+      if (req.method === 'GET') return send(200, { items: await agenda.listQueue() });
+      if (req.method !== 'POST') return send(405, { error: 'Método inválido.' });
+      if (req.headers.origin !== origin || !/^application\/json(?:\s*;|$)/i.test(req.headers['content-type'] || '')) {
+        return send(403, { error: 'Abra a Central da Ana para decidir.' });
+      }
+      const body = await readBody(req);
+      if (!safeId(body?.id) || !['approve', 'reject', 'resolve'].includes(body?.action)) {
+        return send(400, { error: 'Decisão inválida.' });
+      }
+      return send(200, await agenda.decide(body.id, body.action));
+    } catch (error) {
+      if (error.status === 400 || error.status === 413) return send(error.status, { error: error.message });
+      if (error instanceof AgendaConflict) return send(409, { error: 'A Agenda foi atualizada. Tente novamente.' });
+      return send(503, { error: 'Não foi possível acessar a Central da Ana. Tente novamente.' });
     }
   };
 }

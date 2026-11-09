@@ -10,7 +10,7 @@ const FILES = [
   './ana-sync-engine.js?v=ana-dev-8', './cloud-sync.js?v=ana-dev-8', './app.js?v=ana-dev-24',
   './agent-chat.js?v=ana-dev-25', './agent-chat.css?v=ana-dev-25', './agent-voice.js?v=ana-dev-25',
   './manifest.webmanifest', './icon.svg',
-  './ana-console.html', './ana-console.css', './ana-console.js?v=ana-dev-8',
+  './ana-console.html', './ana-simulator.html', './ana-central.js?v=1', './ana-central.css?v=1', './ana-console.css', './ana-console.js?v=ana-dev-8',
   './ana-policy.js?v=ana-dev-13', './ana-local-store.js?v=ana-dev-8',
   './fin-console.html', './fin-console.css?v=ana-dev-24', './fin-console.js?v=ana-dev-24',
   './fin-core.js?v=ana-dev-8', './fin-ledger.js?v=ana-dev-8',

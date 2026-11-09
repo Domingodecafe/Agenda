@@ -131,6 +131,15 @@ const bulkFields = {
   recurrence: { type: ['string', 'null'], enum: ['series', 'single', 'weekly', 'biweekly', 'monthly', null] },
   payment: { type: ['string', 'null'], enum: ['paid', 'unpaid', 'not_paid', null] },
 };
+const noticeTool = {
+  type: 'function', name: 'registrar_aviso', strict: true,
+  description: 'Registra um aviso para revisão na Central da Ana quando o usuário pede explicitamente para anotar, encaminhar ou lembrar de revisar algo.',
+  parameters: {
+    type: 'object', additionalProperties: false, required: ['assunto', 'resumo'],
+    properties: { assunto: { type: 'string' }, resumo: { type: 'string' } },
+  },
+};
+
 const bulkTool = {
   type: 'function', name: 'revisar_exclusao_em_lote', strict: true,
   description: 'Monta o cartão de revisão para um pedido explícito de apagar vários atendimentos, combinando os filtros solicitados.',
@@ -248,17 +257,18 @@ export function createAgentChat({ origin, apiKey, model, fetchResponse = fetch, 
     const followup = agent === 'fin' && finFollowup(message, finContext);
     if (followup) return consultFin(followup);
     const tool = tools[agent];
+    const source = body.voice ? 'voice' : 'text';
     const now = new Date();
     const dateFormat = new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/Sao_Paulo', dateStyle: 'short' });
     const today = dateFormat.format(now);
     const tomorrow = dateFormat.format(new Date(now.getTime() + 86400000));
     if (agenda && agent === 'ana') {
       const filters = directRemoval(message, today);
-      if (filters) return agenda.bulkRemoval(filters);
+      if (filters) return agenda.bulkRemoval(filters, source);
       const short = message.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().trim().replace(/[.!]+$/, '');
       const recurringOnly = /^(?:sim[ ,]+)?(?:apague |exclua )?(?:a |as )?series? inteiras?$/.test(short);
       if (tokenPattern.test(body.pendingRemoval || '') && (recurringOnly || /^(?:sim(?:[ ,]+confirmo)?|confirmo|isso|pode apagar|pode prosseguir)$/.test(short))) {
-        return agenda.continueRemoval(body.pendingRemoval, recurringOnly);
+        return agenda.continueRemoval(body.pendingRemoval, recurringOnly, source);
       }
     }
     const instructions = [
@@ -280,6 +290,7 @@ export function createAgentChat({ origin, apiKey, model, fetchResponse = fetch, 
       agent === 'ana' && (agenda ?
         'Para séries informe a frequência e a quantidade ou a data final somente se indicada. Use alterar_atendimento para editar, remarcar, cancelar ou apagar. Identifique o cliente e a sessão original. Quando houver dúvida sobre o alcance de uma série, pergunte. Só prepare a exclusão se o usuário pedir explicitamente para apagar; cancelar preserva o histórico. A confirmação de apagar ocorre exclusivamente no botão do aplicativo.' :
         'Esta Agenda aceita apenas agendamentos avulsos. Não agende só a primeira sessão de uma série nem altere sessões existentes.'),
+      agent === 'ana' && agenda?.addNotice && 'Use registrar_aviso apenas quando o usuário pedir explicitamente para deixar um aviso ou um lembrete para revisar na Central. Registre um resumo operacional curto, sem contatos, informações clínicas ou transcrição. Se faltar o assunto, pergunte. O aviso não agenda notificação futura. Uma consulta comum não cria aviso.',
       agent === 'ana' && agenda && 'Para excluir por período, dia da semana, vários clientes, horários, recorrência ou pagamento, use revisar_exclusao_em_lote assim que os filtros estiverem claros. A lista e o botão serão gerados pelo servidor. Não peça confirmação por mensagem. Preserve limites já informados. “Até o fim do ano” começa hoje e termina em 31 de dezembro, salvo indicação diferente. “Não pagos” significa sem pagamento registrado, exceto quando o usuário citar o status Não pago. Se faltar dado que mude a seleção, faça só uma pergunta curta. Não use ferramentas de exclusão para hipóteses.',
     ].filter(Boolean).join(' ');
     const input = [...history.map(({ role, content }) => ({ role, content })), { role: 'user', content: message }];
@@ -291,7 +302,7 @@ export function createAgentChat({ origin, apiKey, model, fetchResponse = fetch, 
           properties: { [tool.field]: { type: 'string', description: tool.format }, ...(agent === 'fin' && finFields) },
           required: [tool.field, ...(agent === 'fin' ? Object.keys(finFields) : [])], additionalProperties: false,
         },
-      }, ...(agent === 'ana' ? (agenda ? [recurringBookingTool, changeTool, bulkTool] : [bookingTool]) : [])],
+      }, ...(agent === 'ana' ? (agenda ? [recurringBookingTool, changeTool, bulkTool, ...(agenda.addNotice ? [noticeTool] : [])] : [bookingTool]) : [])],
       parallel_tool_calls: false,
       include: ['reasoning.encrypted_content'],
     });
@@ -306,10 +317,16 @@ export function createAgentChat({ origin, apiKey, model, fetchResponse = fetch, 
     let args;
     try { args = JSON.parse(call.arguments); }
     catch { throw new ChatError(502, 'Dados da ação inválidos.'); }
+    if (agenda?.addNotice && agent === 'ana' && call.name === noticeTool.name) {
+      if (!validText(args?.assunto, 100) || !validText(args?.resumo, 400)) {
+        return { reply: 'Qual assunto você quer que eu registre para revisão?' };
+      }
+      return agenda.addNotice(args.assunto.trim(), args.resumo.trim(), source);
+    }
     if (agenda && agent === 'ana' && call.name === bulkTool.name) {
       if (!args || !validRemovalFilters(args)) return { reply: 'Quais atendimentos você quer apagar? Informe o cliente, o período ou outro filtro.' };
       const filters = Object.fromEntries(Object.keys(bulkFields).map(key => [key, args[key]]));
-      return agenda.bulkRemoval(filters);
+      return agenda.bulkRemoval(filters, source);
     }
     if (agent === 'ana' && (call.name === bookingTool.name ||
         (call.name === changeTool.name && args?.acao === 'edit' && args.novo_horario))) {
@@ -345,7 +362,7 @@ export function createAgentChat({ origin, apiKey, model, fetchResponse = fetch, 
         throw new ChatError(502, 'Não consegui identificar os dados da alteração. Confira o pedido e tente novamente.');
       }
       return agenda.change({ action: acao, name: nome.trim(), date: data, start: horario, scope: alcance,
-        newDate: nova_data, newStart: novo_horario, modality: modalidade, value: valor, duration: duracao });
+        newDate: nova_data, newStart: novo_horario, modality: modalidade, value: valor, duration: duracao }, source);
     }
     if (call.name !== tool.name) throw new ChatError(502, 'Consulta do agente inválida.');
     const period = args?.[tool.field];

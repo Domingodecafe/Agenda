@@ -1,0 +1,38 @@
+.ana-central {
+  min-height: 100vh;
+}
+
+.ana-central [hidden] { display: none; }
+.ana-central .ana-sections { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.ana-central .ana-sections a { display: inline-flex; align-items: center; min-height: 44px; padding-inline: 10px; }
+.ana-central .fin-totals article:first-child { background: #f8e7b1; }
+.ana-central .fin-totals article + article { background: #e2edda; }
+.ana-central .ana-records {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: var(--surface);
+  overflow-wrap: anywhere;
+}
+.ana-central .ana-records:empty { display: none; }
+.ana-central .ana-records > li { padding: 10px 12px; }
+.ana-central .ana-records > li + li { border-top: 1px solid var(--line); }
+.ana-central .ana-records p { margin: 6px 0; }
+.ana-central .ana-records small { display: block; color: var(--muted); }
+.ana-central .ana-records summary { cursor: pointer; min-height: 44px; }
+.ana-central .ana-review { max-height: 15rem; overflow: auto; padding-inline-start: 24px; }
+.ana-central .ana-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.ana-central :is(a, summary) { color: var(--text); }
+.ana-central button {
+  background: var(--surface);
+  border-color: var(--line2);
+  color: var(--text);
+}
+.ana-central :is(button, a, summary):focus-visible {
+  outline: 2px solid var(--accent-strong);
+  outline-offset: 2px;
+}
+.ana-central .ana-sections [aria-pressed="true"],
+.ana-central button[data-action="approve"] { background: #22554c; color: #fff; }

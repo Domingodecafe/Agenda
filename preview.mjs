@@ -4,7 +4,7 @@ import { createAgentChat } from './agent-chat-server.mjs';
 import { createVoiceHandler } from './agent-voice-server.mjs';
 import { hostedAccess } from './hosted-access.mjs';
 import { createFixture } from './hosted-fixture.mjs';
-import { createSharedAgenda, createSnapshotStore, sharedAgendaHandler } from './shared-agenda.mjs';
+import { anaQueueHandler, createSharedAgenda, createSnapshotStore, sharedAgendaHandler } from './shared-agenda.mjs';
 
 // Somente os arquivos públicos da PWA: não expõe Git, SQL, backups ou configurações.
 const files = new Map([
@@ -18,6 +18,9 @@ const files = new Map([
   ['/ana-environment.js', 'text/javascript; charset=utf-8'],
   ['/ana-sync-engine.js', 'text/javascript; charset=utf-8'],
   ['/ana-console.html', 'text/html; charset=utf-8'],
+  ['/ana-simulator.html', 'text/html; charset=utf-8'],
+  ['/ana-central.js', 'text/javascript; charset=utf-8'],
+  ['/ana-central.css', 'text/css; charset=utf-8'],
   ['/ana-console.css', 'text/css; charset=utf-8'],
   ['/ana-console.js', 'text/javascript; charset=utf-8'],
   ['/ana-policy.js', 'text/javascript; charset=utf-8'],
@@ -76,6 +79,7 @@ if (hostedOrigin) {
 }
 const access = hostedOrigin ? hostedAccess({ origin: url.origin, password }) : null;
 const agenda = sharedEnabled ? createSharedAgenda(createSnapshotStore(supabase)) : null;
+const queueApi = agenda ? anaQueueHandler(agenda, url.origin) : null;
 const agendaApi = agenda ? sharedAgendaHandler(agenda, url.origin) : null;
 const browserConfig = hostedOrigin ? `globalThis.AgendaHostedConfig = ${JSON.stringify({
   origin: url.origin, shared: sharedEnabled, voice: voiceEnabled, ...(sharedEnabled ? {} : { fixture: createFixture() }),
@@ -117,6 +121,7 @@ export const server = http.createServer(async (req, res) => {
   if (voice && (pathname === voicePath || pathname.startsWith(voicePath + '/'))) {
     return voice(req, res, pathname.slice(voicePath.length + 1));
   }
+  if (queueApi && pathname === basePath + 'api/ana-queue') return queueApi(req, res);
   if (agendaApi && pathname === basePath + 'api/agenda') return agendaApi(req, res, requestUrl);
   if (!['GET', 'HEAD'].includes(req.method)) {
     res.writeHead(405, { Allow: 'GET, HEAD' }).end(); return;

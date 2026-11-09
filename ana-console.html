@@ -1,42 +1,53 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="referrer" content="no-referrer">
-  <title>Ana — Atendimento local</title>
-  <link rel="stylesheet" href="ana-console.css">
-  <link rel="stylesheet" href="graphite.css?v=ana-dev-16">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Central da Ana</title>
+  <link rel="icon" href="icon.svg">
+  <link rel="stylesheet" href="fin-console.css?v=ana-dev-24">
+  <link rel="stylesheet" href="ana-central.css?v=1">
   <script defer src="ana-environment.js?v=ana-dev-16"></script>
-  <script defer src="ana-policy.js?v=ana-dev-13"></script>
-  <script defer src="ana-local-store.js?v=ana-dev-8"></script>
-  <script defer src="ana-console.js?v=ana-dev-8"></script>
+  <script defer src="ana-central.js?v=1"></script>
 </head>
-<body class="console-page ana-console-page">
-  <header><a class="brand" href="./">A<span>Ana<small>Secretária de IA de Henrique</small></span></a><span class="badge">LOCAL · DADOS FICTÍCIOS</span><a href="./">Abrir agenda</a></header>
-  <main>
-    <div class="intro"><div><p class="eyebrow">CENTRAL DE ATENDIMENTO</p><h1>Ana, pronta para praticar.</h1><p>Configure cadastros de teste, converse e acompanhe as decisões.</p></div><button id="export" type="button">Exportar backup do laboratório</button></div>
-    <aside class="notice">Laboratório independente: não importa nem altera os cadastros da agenda existente. Respostas, lembretes e ofertas ficam neste computador. Nenhuma mensagem é enviada.</aside>
-    <div id="status" role="status" aria-live="polite"></div>
-    <nav aria-label="Seções da Ana"><button data-page="conversation" aria-pressed="true">Conversa</button><button data-page="people" aria-pressed="false">Cadastros e permissões</button><button data-page="agenda" aria-pressed="false">Sessões e reservas</button><button data-page="pending" aria-pressed="false">Painel de Henrique <span id="pending-count">0</span></button><button data-page="rules" aria-pressed="false">Configuração</button></nav>
-    <section id="conversation" class="page">
-      <div class="columns"><div class="card">
-        <p class="eyebrow">SIMULAR UM CONTATO</p><h2>Conversa por escrito</h2>
-        <label>Número fictício com DDD<input id="number" type="tel" value="5543999990001" autocomplete="off"></label>
-        <label>Paciente da solicitação<select id="target"><option value="">Identificar pelo número</option></select></label>
-        <p class="hint">O número identifica o contato no teste. Em produção, essa identidade deverá vir do canal autenticado.</p>
-        <div class="actions"><button id="takeover">Assumir atendimento</button><button id="resume">Devolver para Ana</button></div>
-        <p id="conversation-mode" class="badge"></p>
-        <details><summary>Operação estruturada</summary><p class="hint">Para testar uma regra específica sem depender da interpretação de texto, escolha a operação e preencha os dados da sessão abaixo.</p><label>Operação<select id="intent"><option value="auto">Interpretar mensagem localmente</option></select></label></details>
-        <div class="grid"><label>Data<input id="date" type="date"></label><label>Horário<input id="time" type="time" value="14:00"></label><label>Modalidade<select id="modality"><option>Presencial</option><option>Online</option><option>Ambas</option></select></label><label>Quantidade<select id="count"><option value="1">Uma sessão</option><option value="2">Duas consecutivas</option></select></label></div>
-        <label>Sessão / reserva (ID, quando necessário)<input id="session-id" placeholder="Copie o ID em Sessões e reservas"></label>
-      </div><div class="card chat-card"><div class="chat-heading"><h2>Atendimento de teste</h2><span id="revision"></span></div><div id="messages" class="messages" aria-live="polite"></div><div id="choices" class="choices"></div><form id="message-form"><label for="message">Mensagem do contato</label><textarea id="message" rows="3" placeholder="Ex.: quais são os horários disponíveis?" required></textarea><button class="primary" type="submit">Processar mensagem local</button></form></div></div>
+<body class="console-page fin-console-page fin-shared ana-central">
+  <main class="fin-home">
+    <header class="fin-heading">
+      <div><a href="./">‹ Agenda</a><p class="fin-brand">Aquarela Brasileira</p><h1>Central da Ana</h1></div>
+    </header>
+    <nav class="ana-sections" aria-label="Seções da Central da Ana">
+      <button type="button" aria-pressed="true" data-section="queue">Pendências</button>
+      <button type="button" aria-pressed="false" data-section="rules">Regras de atendimento</button>
+      <a href="ana-simulator.html">Testar a Ana</a>
+    </nav>
+    <div id="queue">
+      <section class="fin-totals" aria-label="Resumo das pendências">
+        <article>Aguardando aprovação<strong id="approval-count">—</strong></article>
+        <article>Avisos para revisar<strong id="notice-count">—</strong></article>
+      </section>
+      <p id="queue-status" role="status">Carregando pendências…</p>
+      <button id="queue-refresh" type="button" hidden>Atualizar</button>
+      <section class="fin-history">
+        <h2>Aguardando aprovação</h2>
+        <ul id="approvals" class="ana-records"></ul>
+      </section>
+      <section class="fin-history">
+        <h2>Avisos para revisar</h2>
+        <ul id="notices" class="ana-records"></ul>
+      </section>
+      <section class="fin-history">
+        <h2>Histórico</h2>
+        <ul id="history" class="ana-records"></ul>
+      </section>
+    </div>
+    <section id="rules" class="fin-history" hidden>
+      <h2>Regras de atendimento</h2>
+      <ul class="ana-records">
+        <li><strong>Agendamento</strong><p>A Ana consulta horários, agenda, remarca e cancela atendimentos. Se faltar informação, ela pergunta antes de agir.</p></li>
+        <li><strong>Exclusão</strong><p>A Ana separa os atendimentos para revisão. Você pode confirmar pelo botão no chat ou nesta central em até 24 horas.</p></li>
+        <li><strong>Avisos</strong><p>Peça à Ana para deixar um assunto para você revisar. O aviso fica nesta central.</p></li>
+      </ul>
     </section>
-    <section id="people" class="page" hidden>
-      <div class="columns"><form id="patient-form" class="card"><p class="eyebrow">SOMENTE HENRIQUE</p><h2>Cadastro fictício</h2><label>Editar cadastro<select id="patient-edit"><option value="">Novo cadastro</option></select></label><label>Nome completo<input name="name" required></label><label>Número próprio com DDD<input name="phone" type="tel" required></label><label>Nome de preferência<input name="preferredName"></label><div class="grid"><label>Valor individual (R$)<input name="defaultValue" type="number" min="0" step="0.01" placeholder="Ausente: aplicar R$ 200"></label><label>Modalidade<select name="modality"><option value="">Não informada</option><option>Presencial</option><option>Online</option></select></label></div><label>Frequência definida por Henrique<select name="frequency"><option value="none">Sem recorrência</option><option value="weekly">Semanal</option><option value="biweekly">Quinzenal</option></select></label><label class="check"><input name="minor" type="checkbox">Menor identificado por Henrique</label><label class="check"><input name="financial" type="checkbox">Número próprio autorizado a receber informações financeiras</label><label class="check"><input name="active" type="checkbox" checked>Cadastro ativo</label><button class="primary">Salvar cadastro</button></form>
-      <div><form id="link-form" class="card"><p class="eyebrow">SOMENTE HENRIQUE</p><h2>Contato vinculado</h2><label>Paciente<select id="link-patient" name="patientId" required></select></label><label>Nome do contato<input name="name"></label><label>Número com DDD<input name="phone" type="tel" required></label><label class="check"><input name="authorized" type="checkbox" checked>Autorizar agendamentos e alterações</label><label class="check"><input name="financial" type="checkbox">Autorizar informações financeiras</label><label class="check"><input name="reminders" type="checkbox">Receber lembretes</label><button class="primary">Salvar permissões</button><p class="hint">Use o mesmo paciente e número para atualizar ou revogar a autorização.</p></form><div id="people-list" class="card"></div></div></div>
-    </section>
-    <section id="agenda" class="page" hidden><div class="card"><h2>Sessões locais</h2><div id="sessions-list"></div></div><div class="columns"><form id="block-form" class="card"><h2>Bloquear horário</h2><label>Data<input name="date" type="date" required></label><div class="grid"><label>Início<input name="start" type="time" required></label><label>Fim<input name="end" type="time" required></label></div><button>Salvar bloqueio</button></form><form id="offer-form" class="card"><h2>Oferecer vaga à fila</h2><label>Data<input name="date" type="date" required></label><label>Horário<input name="start" type="time" required></label><button>Preparar oferta e reserva</button><p class="hint">A primeira pessoa elegível recebe uma oferta local. Processar prazos libera reservas expiradas; nenhum canal externo está conectado.</p></form></div><div id="reservations-list" class="card"></div></section>
-    <section id="pending" class="page" hidden><div class="actions"><button id="tick">Processar prazos agora</button></div><div class="columns"><div class="card"><h2>Pedidos para Henrique</h2><div id="requests-list"></div></div><div class="card"><h2>Mensagens preparadas</h2><p class="hint">Registro local. Não comprova entrega e não será enviado ao conectar um canal no futuro.</p><div id="outbox-list"></div></div></div><div class="card"><h2>Auditoria das operações</h2><div id="audit-list"></div></div></section>
-    <section id="rules" class="page" hidden><div class="card"><p class="eyebrow">PROMPT MESTRE · VERSÃO 1.0</p><h2>Configuração de atendimento</h2><div id="policy-summary"></div><h3>Funcionamento local</h3><p>O motor valida permissões e disponibilidade antes de gravar, em uma transação. O interpretador local reconhece um conjunto limitado de pedidos; mensagens ambíguas são encaminhadas ou pedem esclarecimento. As operações estruturadas permitem exercitar as demais regras.</p><p>Não há modelo de linguagem, WhatsApp, transcrição ou envio de alertas conectado. Lembretes exigem execução no instante exato de 24 horas antes; prazos perdidos não geram envio atrasado. Um agendador persistente e um canal autenticado serão necessários antes do uso real.</p><p>As preferências para relatos de sofrimento são registros administrativos do prompt; este laboratório não implementa um protocolo de emergência validado.</p></div></section>
   </main>
-</body></html>
+</body>
+</html>

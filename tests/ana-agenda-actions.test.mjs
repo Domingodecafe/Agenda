@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { createAgentChat } from '../agent-chat-server.mjs';
 import { AgendaConflict, createSharedAgenda } from '../shared-agenda.mjs';
 import { directRemoval, prepareBulkRemoval, validRemovalFilters } from '../ana-bulk-removal.mjs';
 
@@ -8,7 +9,7 @@ const request = {
   name: 'Tobias Teste', date: '2026-11-13', start: '15:00', modality: 'Presencial', frequency: 'weekly',
 };
 
-function harness() {
+function harness(clock = now, exposeStore) {
   let snapshot;
   const store = {
     async read() { return structuredClone(snapshot); },
@@ -18,7 +19,8 @@ function harness() {
       return snapshot.revision;
     },
   };
-  return createSharedAgenda(store, { now });
+  exposeStore?.(store);
+  return createSharedAgenda(store, { now: clock });
 }
 
 test('Ana agenda série semanal de 52 sessões atomicamente e reconhece repetição', async () => {
@@ -64,11 +66,13 @@ test('Ana remarca uma sessão, preserva recebimento ao cancelar e exige revisão
   const deletion = await agenda.change({ ...changed, action: 'delete' });
   assert.match(deletion.details, /1 com pagamento/);
   assert.ok((await agenda.read()).state.appointments.some(entry => entry.id === item.id));
-  await agenda.book({ ...request, frequency: 'none', name: 'Alteração concorrente' });
+  const edited = await agenda.read();
+  edited.state.appointments.find(entry => entry.id === item.id).end = '19:10';
+  await agenda.write(edited.revision, edited.state);
   assert.match((await agenda.confirmRemoval(deletion.confirmation)).reply, /Agenda mudou/);
   const revised = await agenda.change({ ...changed, action: 'delete' });
   assert.match((await agenda.confirmRemoval(revised.confirmation)).reply, /1 atendimento apagado/);
-  assert.match((await agenda.confirmRemoval(revised.confirmation)).reply, /expirou/);
+  assert.match((await agenda.confirmRemoval(revised.confirmation)).reply, /já foi processado/);
   assert.ok(!(await agenda.read()).state.appointments.some(entry => entry.id === item.id));
 });
 
@@ -127,6 +131,7 @@ test('Sim aponta para o cartão, recorrência preserva o filtro e mudança exige
   assert.match(recurring.review.items[0], /02\/12\/2026/);
   assert.match((await agenda.confirmRemoval(preview.confirmation)).reply, /expirou/);
   const changed = await agenda.read();
+  changed.state.appointments.find(item => item.id === 'dentro').end = '19:10';
   await agenda.write(changed.revision, changed.state);
   assert.match((await agenda.confirmRemoval(recurring.confirmation)).reply, /Agenda mudou/);
   const final = await agenda.bulkRemoval({ ...filters, recurrence: 'series' });
@@ -135,4 +140,61 @@ test('Sim aponta para o cartão, recorrência preserva o filtro e mudança exige
   assert.ok(state.appointments.some(item => item.id === 'fora'));
   assert.ok(!state.appointments.some(item => item.id === 'dentro'));
   assert.equal(state.appointments.length, 84);
+});
+
+test('Central compartilha avisos e aprovações entre instâncias e decide uma exclusão uma só vez', async () => {
+  let store;
+  const agenda = harness(now, value => { store = value; });
+  const other = createSharedAgenda(store, { now });
+  const filters = { from: '2026-11-02', through: '2026-11-02' };
+  const preview = await agenda.bulkRemoval(filters, 'text');
+  await other.addNotice('Revisar agenda', 'Conferir horários de sexta.', 'voice');
+  const [notice, approval] = await agenda.listQueue();
+  assert.equal(notice.source, 'voice');
+  assert.equal(approval.id, preview.confirmation);
+  assert.equal(approval.expiresAt - approval.createdAt, 86400000);
+  const snapshot = await agenda.read();
+  const { anaQueue, ...publicState } = snapshot.state;
+  await agenda.write(snapshot.revision, { ...publicState, anaQueue: [] });
+  assert.equal((await other.listQueue()).length, 2);
+  const decisions = await Promise.all([agenda.confirmRemoval(approval.id), other.decide(approval.id, 'approve')]);
+  assert.equal(decisions.filter(result => result.changed).length, 1);
+  await other.decide(notice.id, 'resolve');
+  assert.deepEqual((await agenda.listQueue()).map(item => item.status), ['resolved', 'approved']);
+});
+
+test('Recusar ou deixar expirar um pedido preserva os atendimentos', async () => {
+  let time = now();
+  const agenda = harness(() => time);
+  const filters = { from: '2026-11-02', through: '2026-11-02' };
+  const first = await agenda.bulkRemoval(filters);
+  const second = await agenda.bulkRemoval(filters, 'voice');
+  const before = (await agenda.read()).state.appointments;
+  await agenda.decide(first.confirmation, 'reject');
+  assert.match((await agenda.confirmRemoval(first.confirmation)).reply, /já foi processado/);
+  time = new Date(time.getTime() + 86400000);
+  assert.match((await agenda.confirmRemoval(second.confirmation)).reply, /expirou/);
+  assert.deepEqual((await agenda.listQueue()).map(item => item.status), ['expired', 'rejected']);
+  assert.deepEqual((await agenda.read()).state.appointments, before);
+});
+
+test('Ana registra aviso de voz após a ferramenta e mantém confirmação falada pendente', async () => {
+  const agenda = harness();
+  const chat = createAgentChat({
+    origin: 'https://agenda.example',
+    apiKey: 'test', model: 'test', agenda,
+    fetchResponse: async () => Response.json({ status: 'completed', output: [{
+      type: 'function_call', name: 'registrar_aviso', call_id: 'call_notice',
+      arguments: JSON.stringify({ assunto: 'Horário de sexta', resumo: 'Conferir o horário de sexta.' }),
+    }] }),
+  });
+  const turn = { agent: 'ana', history: [], voice: true };
+  const result = await chat.processTurn({ ...turn, message: 'Deixa um aviso para eu revisar o horário de sexta.' });
+  assert.match(result.reply, /Registrei o aviso/);
+  const preview = await agenda.bulkRemoval({ from: '2026-11-02', through: '2026-11-02' });
+  const reply = await chat.processTurn({ ...turn, message: 'confirmo', pendingRemoval: preview.confirmation });
+  assert.equal(reply.showConfirmation, true);
+  assert.deepEqual((await agenda.listQueue()).map(item => [item.kind, item.source, item.status]), [
+    ['approval', 'text', 'pending'], ['notice', 'voice', 'pending'],
+  ]);
 });
