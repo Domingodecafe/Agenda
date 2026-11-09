@@ -47,3 +47,5 @@ body.console-page.fin-shared {
 .fin-shared #fin-empty { color: var(--muted); }
 .fin-shared .fin-retry { padding: 9px 12px; margin-bottom: 12px; border: 1px solid #d6a99f; border-radius: 10px; background: #faebe4; }
 .fin-shared .fin-retry p { margin: 0 0 6px; }
+
+.fin-shared #fin-more { display: block; margin: 12px auto 0; }

@@ -12,6 +12,9 @@
     const filter = $('fin-filter');
     const list = $('fin-records');
     const empty = $('fin-empty');
+    const more = $('fin-more');
+    const batchSize = 10;
+    let visibleCount = batchSize;
     const retry = document.querySelector('.fin-retry');
     let current = null;
     let reading = false;
@@ -34,7 +37,8 @@
       const entries = filter.value === 'received' ? received : filter.value === 'open' ? open : [...received, ...open];
       const day = record => record.paymentDate || record.sessionDate;
       entries.sort((a, b) => day(b).localeCompare(day(a)) || a.endTime.localeCompare(b.endTime));
-      const rows = entries.map(record => {
+      more.hidden = entries.length <= visibleCount;
+      const rows = entries.slice(0, visibleCount).map(record => {
         const paid = record.status === 'Pago';
         const item = document.createElement('li');
         const who = document.createElement('div');
@@ -74,8 +78,22 @@
         retry.querySelector('button').disabled = false;
       }
     }
-    filter.addEventListener('change', renderHistory);
-    month.addEventListener('change', renderHistory);
+    function resetHistory() {
+      visibleCount = batchSize;
+      renderHistory();
+    }
+    filter.addEventListener('change', resetHistory);
+    month.addEventListener('change', resetHistory);
+    more.addEventListener('click', () => {
+      const firstNewRecord = visibleCount;
+      visibleCount += batchSize;
+      renderHistory();
+      const record = list.children[firstNewRecord];
+      if (record) {
+        record.tabIndex = -1;
+        record.focus();
+      }
+    });
     retry.querySelector('button').addEventListener('click', update);
     document.addEventListener('visibilitychange', () => { if (!document.hidden) void update(); });
     setInterval(() => { if (!document.hidden) void update(); }, 60000);

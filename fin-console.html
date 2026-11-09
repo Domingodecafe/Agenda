@@ -3,14 +3,14 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Fin — Financeiro da marca</title><link rel="icon" href="icon.svg">
-  <link rel="stylesheet" href="fin-console.css?v=ana-dev-23">
+  <link rel="stylesheet" href="fin-console.css?v=ana-dev-24">
   <link rel="stylesheet" href="graphite.css?v=ana-dev-16">
   <script src="ana-environment.js?v=ana-dev-16" defer></script>
   <script src="fin-core.js?v=ana-dev-8" defer></script>
   <script src="fin-ledger.js?v=ana-dev-8" defer></script>
   <script src="fin-store.js?v=ana-dev-23" defer></script>
   <script src="fin-assistant.js?v=ana-dev-8" defer></script>
-  <script src="fin-console.js?v=ana-dev-23" defer></script>
+  <script src="fin-console.js?v=ana-dev-24" defer></script>
 </head>
 <body class="console-page fin-console-page">
 <template id="shared-fin-template">
@@ -33,6 +33,7 @@
       </div>
       <p id="fin-empty" role="status">Carregando histórico…</p>
       <ul id="fin-records"></ul>
+      <button id="fin-more" type="button" aria-controls="fin-records" hidden>Mostrar mais</button>
     </section>
   </main>
 </template>

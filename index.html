@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="styles.css?v=ana-dev-8">
   <link rel="stylesheet" href="agent-chat.css?v=ana-dev-17">
   <link rel="stylesheet" href="graphite.css?v=ana-dev-16">
-  <link rel="stylesheet" href="aquarela.css?v=ana-dev-22">
+  <link rel="stylesheet" href="aquarela.css?v=ana-dev-24">
   <title>Ana DEV — Agenda de testes</title>
 </head>
 <body class="agenda-page aquarela-page">
@@ -112,9 +112,12 @@
       </section>
 
       <section id="clients-screen" class="screen" aria-label="Clientes">
-        <div class="section-heading"><div><span class="eyebrow">CADASTROS</span><h2>Clientes</h2><p>Informações essenciais para agendar mais rápido.</p></div><button id="new-client" class="primary-button" type="button"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><use href="#lucide-plus"/></svg><span>Novo cliente</span></button></div>
-        <div class="search-wrap"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><use href="#lucide-search"/></svg><input id="client-search" type="search" placeholder="Buscar por nome ou telefone" aria-label="Buscar clientes"></div>
+        <div class="client-toolbar">
+          <div class="search-wrap"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><use href="#lucide-search"/></svg><input id="client-search" type="search" placeholder="Buscar por nome ou telefone" aria-label="Buscar clientes"></div>
+          <button id="new-client" class="primary-button" type="button"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><use href="#lucide-plus"/></svg><span>Novo cliente</span></button>
+        </div>
         <div id="client-list" class="client-grid"></div>
+        <div class="aqua-more"><button id="client-more" type="button" class="secondary-button" aria-controls="client-list" hidden>Mostrar mais</button></div>
       </section>
 
       <section id="summary-screen" class="screen" aria-label="Resumo financeiro">
@@ -135,8 +138,10 @@
       </section>
     </main>
 
-    <p id="quick-voice-status" role="status"></p>
-    <button id="agent-chat-open" class="primary-button aqua-speak" type="button" aria-pressed="false" aria-describedby="quick-voice-status" disabled><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M2 10v3M6 6v11M10 3v18M14 8v7M18 5v13M22 10v3"/></svg><span>Falar</span></button>
+    <div class="aqua-voice-dock">
+      <p id="quick-voice-status" role="status"></p>
+      <button id="agent-chat-open" class="primary-button aqua-speak" type="button" aria-pressed="false" aria-describedby="quick-voice-status" disabled><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M2 10v3M6 6v11M10 3v18M14 8v7M18 5v13M22 10v3"/></svg><span>Falar</span></button>
+    </div>
   </div>
 
   <dialog id="agent-chat" class="modal agent-chat" aria-labelledby="agent-chat-title">
@@ -265,6 +270,6 @@
   <script src="fin-core.js?v=ana-dev-8" defer></script>
   <script src="agent-voice.js?v=ana-dev-20" defer></script>
   <script src="agent-chat.js?v=ana-dev-20" defer></script>
-  <script src="app.js?v=ana-dev-21" defer></script>
+  <script src="app.js?v=ana-dev-24" defer></script>
 </body>
 </html>

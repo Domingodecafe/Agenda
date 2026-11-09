@@ -27,6 +27,8 @@
   let summaryMode = 'due';
   let summaryUndated = false;
   let summaryDetailAll = false;
+  const CLIENT_BATCH_SIZE = 10;
+  let clientVisibleCount = CLIENT_BATCH_SIZE;
   let summaryVisibleCount = 10;
   let summaryReturnPosition = null;
   let appointmentDateTap = null;
@@ -834,12 +836,13 @@
   function renderClients() {
     const query = $('#client-search').value.trim().toLocaleLowerCase();
     const clients = state.clients.filter(client => `${client.name} ${client.phone} ${client.notes || ''}`.toLocaleLowerCase().includes(query)).sort((a,b) => a.name.localeCompare(b.name));
+    $('#client-more').hidden = clients.length <= clientVisibleCount;
     if (!clients.length) {
       $('#client-list').innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div><span class="empty-icon">♙</span><h3>${query ? 'Nenhum cliente encontrado' : 'Sua lista começa aqui'}</h3><p>${query ? 'Tente buscar por outro nome ou telefone.' : 'Cadastre um cliente ou crie um atendimento para adicioná-lo automaticamente.'}</p>${query ? '' : '<button class="primary-button" id="empty-new-client">Adicionar cliente</button>'}</div></div>`;
       $('#empty-new-client')?.addEventListener('click', () => openClientDialog());
       return;
     }
-    $('#client-list').innerHTML = clients.map(client => `<button class="client-card" data-client-id="${client.id}" type="button"><span class="client-avatar client-${client.color || 'green'}">${escapeHTML(initials(client.name))}</span><span class="client-value">${formatMoney(client.defaultValue)}</span><h3>${escapeHTML(client.name)}</h3><p>${escapeHTML(client.phone || 'Telefone não informado')}</p></button>`).join('');
+    $('#client-list').innerHTML = clients.slice(0, clientVisibleCount).map(client => `<button class="client-card" data-client-id="${client.id}" type="button"><span class="client-avatar client-${client.color || 'green'}">${escapeHTML(initials(client.name))}</span><span class="client-value">${formatMoney(client.defaultValue)}</span><h3>${escapeHTML(client.name)}</h3><p>${escapeHTML(client.phone || 'Telefone não informado')}</p></button>`).join('');
   }
 
   function openClientDialog(id = '') {
@@ -1282,7 +1285,16 @@
     $('#new-client').addEventListener('click', () => openClientDialog());
     $('#client-form').addEventListener('submit', handleEdit(submitClient));
     $('#client-list').addEventListener('click', event => { const card = event.target.closest('[data-client-id]'); if (card) openClientDialog(card.dataset.clientId); });
-    $('#client-search').addEventListener('input', renderClients);
+    $('#client-search').addEventListener('input', () => {
+      clientVisibleCount = CLIENT_BATCH_SIZE;
+      renderClients();
+    });
+    $('#client-more').addEventListener('click', () => {
+      const firstNewClient = clientVisibleCount;
+      clientVisibleCount += CLIENT_BATCH_SIZE;
+      renderClients();
+      $$('#client-list [data-client-id]')[firstNewClient]?.focus();
+    });
     $('#delete-client').addEventListener('click', handleEdit(deleteClient));
     $('#summary-month').addEventListener('change', () => { summaryVisibleCount = 10; summaryReturnPosition = null; renderSummary(); });
     $('#finance-cards').addEventListener('click', event => {

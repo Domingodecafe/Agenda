@@ -27,7 +27,7 @@ html:has(.aquarela-page) { color-scheme: light; }
 .aquarela-page > .icon-sprite { display: none; }
 .agenda-page.aquarela-page .app-shell {
   margin: 0;
-  padding: 23px clamp(12px, 3vw, 42px) 95px;
+  padding: 23px clamp(12px, 3vw, 42px) max(14px,env(safe-area-inset-bottom));
 }
 .aquarela-page .topbar {
   position: relative;
@@ -92,14 +92,18 @@ html:has(.aquarela-page) { color-scheme: light; }
 .aquarela-page .bottom-nav button { justify-content: flex-start; flex-direction: row; padding: 8px 10px; }
 .aquarela-page .nav-consoles { display: grid; border-top: 1px solid var(--line); padding: 6px 8px; margin: 0; }
 .aquarela-page .nav-consoles a { color: var(--text); display: flex; align-items: center; min-height: 44px; }
+.aquarela-page .aqua-voice-dock {
+  position: sticky;
+  z-index: 16;
+  bottom: max(14px,env(safe-area-inset-bottom));
+  width: max-content;
+  margin: 12px 0 0 auto;
+}
 .aquarela-page .aqua-speak {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  position: fixed;
-  z-index: 16;
-  inset: auto max(14px,env(safe-area-inset-right)) max(14px,env(safe-area-inset-bottom)) auto;
   border-radius: 26px;
   min-height: 48px;
   box-shadow: var(--shadow);
@@ -113,9 +117,9 @@ html:has(.aquarela-page) { color-scheme: light; }
   color: var(--text);
 }
 #quick-voice-status {
-  position: fixed;
-  z-index: 16;
-  inset: auto max(14px,env(safe-area-inset-right)) calc(70px + env(safe-area-inset-bottom)) auto;
+  position: absolute;
+  inset: auto 0 calc(100% + 8px) auto;
+  width: max-content;
   max-width: min(310px,calc(100vw - 28px));
   margin: 0;
   padding: 8px 12px;
@@ -242,4 +246,22 @@ html:has(.aquarela-page) { color-scheme: light; }
 }
 @media (min-width: 1000px) {
   body.aquarela-page:has(.agent-chat[open]) .app-shell { margin-inline-end: 420px; }
+}
+
+.aquarela-page .client-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.aquarela-page .client-toolbar .search-wrap { flex: 1; min-width: 0; margin: 0; }
+.aquarela-page #new-client.primary-button { padding-inline: 11px; }
+.aquarela-page .aqua-more { display: flex; justify-content: center; }
+.aquarela-page .aqua-more button { margin-top: 12px; }
+.aquarela-page .aqua-more button[hidden] { display: none; }
+.aquarela-page .topbar:has(+ #update-notice + #agenda-sync-status + main #clients-screen.active) { margin-bottom: 8px; }
+@media (max-width: 640px) {
+  .aquarela-page .client-grid { padding-inline: 0; }
+  .aquarela-page .client-toolbar .search-wrap { padding-inline: 8px; }
+  .aquarela-page #new-client.primary-button { font-size: 12px; gap: 4px; }
 }
