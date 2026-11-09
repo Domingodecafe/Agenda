@@ -174,7 +174,7 @@ function workerContext(scope = devURL) {
     caches: {
       async open(name) {
         opened.push(name);
-        assert.equal(name, 'ana-dev-pwa-v21');
+        assert.equal(name, 'ana-dev-pwa-v22');
         return {
           async addAll(files) { cached.push(...files); },
           async match(request) { matched.push(request); return 'RESPOSTA ANA'; }
@@ -201,8 +201,8 @@ test('Worker pré-carrega todos os scripts e usa somente cache Ana', async () =>
   let pending;
   events.get('install')({waitUntil(promise) { pending = promise; }});
   await pending;
-  assert.deepEqual(opened, ['ana-dev-pwa-v21']);
-  for (const path of ['aquarela.css?v=ana-dev-21', 'graphite.css?v=ana-dev-16', 'ana-environment.js?v=ana-dev-16', 'cloud-sync.js?v=ana-dev-8', 'app.js?v=ana-dev-21', 'agent-chat.js?v=ana-dev-20', 'agent-chat.css?v=ana-dev-17', 'agent-voice.js?v=ana-dev-20']) {
+  assert.deepEqual(opened, ['ana-dev-pwa-v22']);
+  for (const path of ['aquarela.css?v=ana-dev-22', 'graphite.css?v=ana-dev-16', 'ana-environment.js?v=ana-dev-16', 'cloud-sync.js?v=ana-dev-8', 'app.js?v=ana-dev-21', 'agent-chat.js?v=ana-dev-20', 'agent-chat.css?v=ana-dev-17', 'agent-voice.js?v=ana-dev-20']) {
     assert.ok(cached.includes('./' + path));
   }
   assert.equal(foreignCache.sentinel, 'CACHE ORIGINAL FICTÍCIO');
@@ -224,7 +224,7 @@ test('Worker consulta só o próprio cache para navegação e arquivos de desenv
     events.get('fetch')({request:{method:'GET',url,mode},respondWith(promise){response=promise;}});
     assert.equal(await response, 'RESPOSTA ANA');
   }
-  assert.ok(opened.every(name => name === 'ana-dev-pwa-v21'));
+  assert.ok(opened.every(name => name === 'ana-dev-pwa-v22'));
 });
 
 test('Manifesto tem identidade e início próprios; cliente Auth tem chave separada', async () => {

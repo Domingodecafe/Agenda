@@ -24,6 +24,7 @@
   --week-ruler: 54px;
 }
 html:has(.aquarela-page) { color-scheme: light; }
+.aquarela-page > .icon-sprite { display: none; }
 .agenda-page.aquarela-page .app-shell {
   margin: 0;
   padding: 23px clamp(12px, 3vw, 42px) 95px;
@@ -31,6 +32,7 @@ html:has(.aquarela-page) { color-scheme: light; }
 .aquarela-page .topbar {
   position: relative;
   isolation: isolate;
+  z-index: 15;
   margin-bottom: 15px;
   padding-inline: 0;
   align-items: flex-end;
@@ -130,9 +132,11 @@ html:has(.aquarela-page) { color-scheme: light; }
   padding: 10px;
   min-height: 0;
 }
-.aquarela-page .date-nav { flex-wrap: wrap; }
+.aquarela-page .date-nav { flex: 1; min-width: 0; width: 100%; }
+.aquarela-page .date-nav .icon-button { flex-shrink: 0; }
+.aquarela-page .date-nav .period-label { flex: 1; min-width: 0; }
 .aquarela-page .period-label strong { color: var(--text); white-space: normal; }
-.aquarela-page .toolbar-today { display: inline-flex; align-items: center; margin: 0; }
+.aquarela-page .toolbar-today { display: inline-flex; align-items: center; flex-shrink: 0; margin: 0 0 0 auto; }
 .aquarela-page .date-nav .icon-button { background: var(--surface); box-shadow: none; }
 .aquarela-page .date-nav .icon-button:hover { background: var(--surface3); }
 .aquarela-page .segmented { background: var(--surface2); }
