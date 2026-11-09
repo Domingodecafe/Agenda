@@ -533,16 +533,20 @@
 
   function populateTimeOptions() {
     const times = [];
-    for (let total = 0; total < 24 * 60; total += 15) times.push(`${pad(Math.floor(total / 60))}:${pad(total % 60)}`);
-    times.push('23:59');
+    for (let total = 0; total < 24 * 60; total += 10) times.push(`${pad(Math.floor(total / 60))}:${pad(total % 60)}`);
     const options = times.map(time => `<option value="${time}">${time}</option>`).join('');
     $('#appointment-start').innerHTML = options;
-    $('#appointment-end').innerHTML = options;
+    $('#appointment-end').innerHTML = options + '<option value="23:59">23:59</option>';
   }
 
   function setTimeValue(selector, value) {
     const select = $(selector);
-    if (value && !Array.from(select.options).some(option => option.value === value)) select.add(new Option(value, value));
+    select.querySelector('[data-saved-time]')?.remove();
+    if (value && !Array.from(select.options).some(option => option.value === value)) {
+      const saved = new Option(value, value);
+      saved.dataset.savedTime = '';
+      select.add(saved, Array.from(select.options).find(option => option.value > value) ?? null);
+    }
     select.value = value;
   }
 
